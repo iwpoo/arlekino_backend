@@ -4,11 +4,10 @@ namespace App\Http\Controllers\API\v1;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\TokenService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Redis;
-use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -42,43 +41,35 @@ class AuthController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
-        $user->tokens()->delete();
+        $token = TokenService::storeToken($user);
 
-        $token = $user->createToken('api-token')->plainTextToken;
-
-        Redis::setex("token:$token", 900, $user->id);
-
-        return response()->json([
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-            'expires_in' => 600,
-        ]);
+        return response()->json(['token' => $token]);
     }
 
-    public function checkToken(Request $request): JsonResponse
-    {
-        $token = $request->bearerToken();
-        $userId = $this->getUserIdFromToken($token);
-
-        $cachedToken = Redis::get("sanctum_token_$userId");
-
-        if ($cachedToken && $cachedToken == $token) {
-            return response()->json(['message' => 'Token is valid']);
-        }
-
-        $accessToken = PersonalAccessToken::findToken($token);
-        if ($accessToken && $accessToken->isValid()) {
-            Redis::setex("sanctum_token_$userId", 3600, $token);
-            return response()->json(['message' => 'Token is valid']);
-        }
-
-        return response()->json(['error' => 'Unauthorized'], 401);
-    }
+//    public function refreshToken(Request $request): JsonResponse
+//    {
+//        $token = TokenService::getTokenFromDb($request->bearerToken());
+//
+//        if (!$token) {
+//            return response()->json(['message' => 'Unauthorized'], 401);
+//        }
+//
+//        if (TokenService::isExpired($token)) {
+//            $newToken = TokenService::updateToken($token);
+//
+//            if ($newToken) {
+//                return response()->json(['token' => $newToken]);
+//            }
+//        }
+//
+//        return response()->json(['message' => 'Token not expired'], 401);
+//    }
 
     public function logout(Request $request): JsonResponse
     {
-        $token = $request->bearerToken();
-        Redis::del("api_token_$token");
+        $user = $request->user();
+
+        TokenService::deleteToken($user);
 
         return response()->json(['message' => 'Successfully logged out']);
     }

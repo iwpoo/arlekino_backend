@@ -6,7 +6,10 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->group(static function (): void {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
-    Route::middleware(['auth:sanctum'])->group(static function (): void {
-        Route::get('check-token', [AuthController::class, 'checkToken']);
+    Route::middleware(['auth:sanctum', 'auth.token'])->group(static function (): void {
+        Route::post('logout', [AuthController::class, 'logout']);
+        Route::get('/user', function () {
+            return 'hello';
+        });
     });
 });
