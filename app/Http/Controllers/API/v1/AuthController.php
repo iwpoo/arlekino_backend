@@ -4,25 +4,29 @@ namespace App\Http\Controllers\API\v1;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Services\TokenService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
     public function register(Request $request): JsonResponse
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255',
-            'password' => 'required|string',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:4',
         ]);
 
+        if($validator->fails()){
+            return response()->json($validator->errors()->toJson(), 400);
+        }
+
         User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
+            'name' => $request->get('name'),
+            'email' => $request->get('email'),
+            'password' => Hash::make($request->get('password')),
         ]);
 
         return response()->json(['message' => 'User registered successfully'], 201);
@@ -38,39 +42,23 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return response()->json(['error' => 'The provided credentials are incorrect.'], 422);
         }
 
-        $token = TokenService::storeToken($user);
+        $token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json(['token' => $token]);
+        return response()->json(compact('token'), 401);
     }
-
-//    public function refreshToken(Request $request): JsonResponse
-//    {
-//        $token = TokenService::getTokenFromDb($request->bearerToken());
-//
-//        if (!$token) {
-//            return response()->json(['message' => 'Unauthorized'], 401);
-//        }
-//
-//        if (TokenService::isExpired($token)) {
-//            $newToken = TokenService::updateToken($token);
-//
-//            if ($newToken) {
-//                return response()->json(['token' => $newToken]);
-//            }
-//        }
-//
-//        return response()->json(['message' => 'Token not expired'], 401);
-//    }
 
     public function logout(Request $request): JsonResponse
     {
-        $user = $request->user();
-
-        TokenService::deleteToken($user);
+        $request->user()->currentAccessToken()->delete();
 
         return response()->json(['message' => 'Successfully logged out']);
+    }
+
+    public function me(Request $request): JsonResponse
+    {
+        return response()->json([$request->user()]);
     }
 }
