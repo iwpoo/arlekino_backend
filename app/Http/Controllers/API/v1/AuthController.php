@@ -45,9 +45,17 @@ class AuthController extends Controller
             return response()->json(['error' => 'The provided credentials are incorrect.'], 422);
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $user->createToken('auth_token', [], now()->addMinutes(config('sanctum.expiration')))->plainTextToken;
 
-        return response()->json(compact('token'), 401);
+        return response()->json(compact('token'), 401)->withCookie(
+            'token',
+            $token,
+            config('sanctum.expiration'),
+            null,
+            null,
+            false,
+            true
+        );
     }
 
     public function logout(Request $request): JsonResponse
