@@ -7,7 +7,7 @@ Route::prefix('v1')->group(static function (): void {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
 
-    Route::middleware(['auth.token', 'auth:sanctum'])->group(static function (): void {
+    Route::middleware(['auth:sanctum'])->group(static function (): void {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
     });
