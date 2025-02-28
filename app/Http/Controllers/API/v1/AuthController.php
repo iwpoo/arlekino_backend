@@ -14,8 +14,7 @@ class AuthController extends Controller
     public function register(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'phone' => 'required|integer|unique:users',
             'password' => 'required|string|min:4',
         ]);
 
@@ -24,8 +23,7 @@ class AuthController extends Controller
         }
 
         User::create([
-            'name' => $request->get('name'),
-            'email' => $request->get('email'),
+            'phone' => $request->get('phone'),
             'password' => Hash::make($request->get('password')),
         ]);
 
