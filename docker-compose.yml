@@ -24,7 +24,7 @@ services:
             - mysql
             - redis
     mysql:
-        image: 'mysql/mysql-server:8.0'
+        image: 'mysql/mysql-server:latest'
         ports:
             - '${FORWARD_DB_PORT:-3306}:3306'
         environment:

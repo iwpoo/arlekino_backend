@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API\v1;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -14,17 +15,17 @@ class AuthController extends Controller
     public function register(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'phone' => 'required|integer|unique:users',
+            'email' => 'required|string|unique:users',
             'password' => 'required|string|min:4',
         ]);
 
         if($validator->fails()){
-            return response()->json($validator->errors()->toJson(), 400);
+            return response()->json($validator->errors()->toJson(), 422);
         }
 
         User::create([
-            'phone' => $request->get('phone'),
-            'password' => Hash::make($request->get('password')),
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
         ]);
 
         return response()->json(['message' => 'User registered successfully'], 201);
@@ -45,15 +46,7 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token', [], now()->addMinutes(config('sanctum.expiration')))->plainTextToken;
 
-        return response()->json(compact('token'), 201)->withCookie(
-            'token',
-            $token,
-            config('sanctum.expiration'),
-            null,
-            null,
-            false,
-            true
-        );
+        return response()->json(compact('token'), 201);
     }
 
     public function logout(Request $request): JsonResponse
@@ -66,5 +59,29 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         return response()->json([$request->user()]);
+    }
+
+    public function verifyEmail($id, $hash): JsonResponse
+    {
+        $user = User::find($id);
+
+        if (!$user || !hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+            return response()->json(['error' => 'Invalid verification link'], 400);
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Email already verified']);
+        }
+
+        $user->markEmailAsVerified();
+        event(new Verified($user));
+
+        return response()->json(['message' => 'Email successfully verified']);
+    }
+
+    public function sendEmailVerification(Request $request): JsonResponse
+    {
+        $request->user()->sendEmailVerificationNotification();
+        return response()->json(['message' => 'Verification link sent']);
     }
 }
