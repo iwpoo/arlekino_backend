@@ -27,6 +27,7 @@ class PostController extends Controller
 
             $posts = Post::whereIn('user_id', $followingIds)
                 ->where('is_published', true)
+                ->with(['user', 'comments', 'files'])
                 ->latest()
                 ->paginate($perPage);
         } elseif ($type === 'recommendations') {
@@ -35,6 +36,7 @@ class PostController extends Controller
 
             $posts = Post::whereNotIn('user_id', $followingIds)
                 ->where('is_published', true)
+                ->with(['user', 'comments', 'files'])
                 ->orderByDesc('likes_count')
                 ->paginate($perPage);
         } else {
