@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 
 class Post extends Model
 {
@@ -38,5 +39,12 @@ class Post extends Model
     public function comments(): HasMany
     {
         return $this->hasMany(Comment::class);
+    }
+
+    public function isLikedByUser($postId, $userId): mixed
+    {
+        return Cache::remember("post:$postId:user:$userId:liked", 60, function () use ($postId, $userId) {
+            return Like::where('user_id', $userId)->where('post_id', $postId)->exists();
+        });
     }
 }

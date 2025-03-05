@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\API\v1\AuthController;
+use App\Http\Controllers\API\v1\Post\LikeController;
 use App\Http\Controllers\API\v1\Post\PostController;
 use Illuminate\Support\Facades\Route;
 
@@ -17,5 +18,10 @@ Route::prefix('v1')->group(static function (): void {
         });
     });
 
-    Route::apiResource('posts', PostController::class)->only(['index', 'store', 'show', 'update', 'destroy'])->middleware('auth:sanctum');
+    Route::prefix('posts')->group(static function (): void {
+        Route::middleware(['auth:sanctum'])->group(static function (): void {
+            Route::apiResource('', PostController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
+            Route::post('like/{post}', [LikeController::class, 'toggleLike']);
+        });
+    });
 });
