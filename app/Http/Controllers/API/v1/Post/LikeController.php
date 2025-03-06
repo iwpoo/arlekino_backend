@@ -11,23 +11,49 @@ use Illuminate\Support\Facades\Cache;
 
 class LikeController extends Controller
 {
-    public function toggleLike(Request $request, Post $post): JsonResponse
+    public function like(Request $request, Post $post): JsonResponse
     {
         $user = $request->user();
-        $cacheKey = "post:$post->id:user:$user->id:liked";
 
-        $like = Like::where('user_id', $user->id)->where('post_id', $post->id)->first();
-
-        if ($like) {
-            $like->delete();
-            $post->decrement('likes_count');
-            Cache::forget($cacheKey);
-            return response()->json(['liked' => false, 'likes' => $post->likes_count, 'postId' => $post->id]);
+        if (Like::where('user_id', $user->id)->where('post_id', $post->id)->exists()) {
+            return response()->json(['message' => 'Already liked'], 409);
         }
 
         Like::create(['user_id' => $user->id, 'post_id' => $post->id]);
         $post->increment('likes_count');
-        Cache::forget($cacheKey);
-        return response()->json(['liked' => true, 'likes' => $post->likes_count, 'postId' => $post->id]);
+
+        $this->clearLikeCache($post->id, $user->id);
+
+        return response()->json([
+            'liked' => true,
+            'likes' => $post->likes_count,
+            'postId' => $post->id
+        ]);
+    }
+
+    public function unlike(Request $request, Post $post): JsonResponse
+    {
+        $user = $request->user();
+        $like = Like::where('user_id', $user->id)->where('post_id', $post->id)->first();
+
+        if (!$like) {
+            return response()->json(['message' => 'Not liked yet'], 409);
+        }
+
+        $like->delete();
+        $post->decrement('likes_count');
+
+        $this->clearLikeCache($post->id, $user->id);
+
+        return response()->json([
+            'liked' => false,
+            'likes' => $post->likes_count,
+            'postId' => $post->id
+        ]);
+    }
+
+    private function clearLikeCache(int $postId, int $userId): void
+    {
+        Cache::forget("post:$postId:user:$userId:liked");
     }
 }
