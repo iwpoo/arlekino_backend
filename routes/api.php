@@ -21,8 +21,9 @@ Route::prefix('v1')->group(static function (): void {
     Route::prefix('posts')->group(static function (): void {
         Route::middleware(['auth:sanctum'])->group(static function (): void {
             Route::apiResource('', PostController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
-            Route::post('like/{post}', [LikeController::class, 'like']);
-            Route::post('unlike/{post}', [LikeController::class, 'unlike']);
+            Route::post('{post}/view', [PostController::class, 'incrementViews']);
+            Route::post('{post}/like', [LikeController::class, 'like']);
+            Route::delete('{post}/unlike', [LikeController::class, 'unlike']);
         });
     });
 });

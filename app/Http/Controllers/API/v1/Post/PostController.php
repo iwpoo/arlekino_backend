@@ -7,6 +7,7 @@ use App\Models\Follow;
 use App\Models\Post;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class PostController extends Controller
 {
@@ -117,5 +118,24 @@ class PostController extends Controller
         $post->delete();
 
         return response()->json(['message' => 'Post deleted successfully']);
+    }
+
+    public function incrementViews(Request $request, Post $post): JsonResponse
+    {
+        if (!auth()->check()) {
+            return response()->json(['message' => 'Просмотр доступен только для авторизованных пользователей'], 403);
+        }
+
+        $userId = auth()->id();
+
+        $cacheKey = "post:$post->id:user:$userId";
+
+        if (!Cache::has($cacheKey)) {
+            Cache::put($cacheKey, true, now()->addHours(24));
+
+            $post->increment('views_count');
+        }
+
+        return response()->json(['message' => 'Просмотр засчитан']);
     }
 }
