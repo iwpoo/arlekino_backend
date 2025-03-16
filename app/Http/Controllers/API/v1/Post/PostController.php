@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API\v1\Post;
 use App\Http\Controllers\Controller;
 use App\Models\Follow;
 use App\Models\Post;
+use DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -19,7 +20,6 @@ class PostController extends Controller
         $userId = $request->user()->id;
 
         $type = $request->query('type', 'subscriptions');
-
         $perPage = $request->query('per_page', 10);
 
         if ($type === 'subscriptions') {
@@ -28,8 +28,16 @@ class PostController extends Controller
 
             $posts = Post::whereIn('user_id', $followingIds)
                 ->where('is_published', true)
-                ->with(['user', 'comments', 'files'])
-                ->latest()
+                ->with(['user', 'files', 'comments'])
+                ->leftJoin('likes as user_likes', function ($join) use ($userId) {
+                    $join->on('posts.id', '=', 'user_likes.post_id')
+                        ->where('user_likes.user_id', $userId);
+                })
+                ->select([
+                    'posts.*',
+                    DB::raw('IF(user_likes.id IS NULL, 0, 1) as is_liked')
+                ])
+                ->orderByDesc('posts.created_at')
                 ->paginate($perPage);
         } elseif ($type === 'recommendations') {
             $followingIds = Follow::where('follower_id', $userId)
@@ -37,7 +45,15 @@ class PostController extends Controller
 
             $posts = Post::whereNotIn('user_id', $followingIds)
                 ->where('is_published', true)
-                ->with(['user', 'comments', 'files'])
+                ->with(['user', 'files', 'comments'])
+                ->leftJoin('likes as user_likes', function ($join) use ($userId) {
+                    $join->on('posts.id', '=', 'user_likes.post_id')
+                        ->where('user_likes.user_id', $userId);
+                })
+                ->select([
+                    'posts.*',
+                    DB::raw('IF(user_likes.id IS NULL, 0, 1) as is_liked')
+                ])
                 ->orderByDesc('likes_count')
                 ->paginate($perPage);
         } else {
@@ -120,7 +136,7 @@ class PostController extends Controller
         return response()->json(['message' => 'Post deleted successfully']);
     }
 
-    public function incrementViews(Request $request, Post $post): JsonResponse
+    public function incrementViews(Post $post): JsonResponse
     {
         if (!auth()->check()) {
             return response()->json(['message' => 'Просмотр доступен только для авторизованных пользователей'], 403);

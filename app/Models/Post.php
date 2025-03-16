@@ -23,8 +23,6 @@ class Post extends Model
         'user_id',
     ];
 
-    protected $appends = ['is_liked'];
-
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -43,15 +41,6 @@ class Post extends Model
     public function comments(): HasMany
     {
         return $this->hasMany(Comment::class);
-    }
-
-    public function getIsLikedAttribute(): bool
-    {
-        if (!auth()->check()) {
-            return false;
-        }
-
-        return $this->isLikedByUser($this->id, auth()->id());
     }
 
     public function isLikedByUser($postId, $userId): mixed

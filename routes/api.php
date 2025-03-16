@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\API\v1\AuthController;
+use App\Http\Controllers\API\v1\Post\CommentController;
 use App\Http\Controllers\API\v1\Post\LikeController;
 use App\Http\Controllers\API\v1\Post\PostController;
 use Illuminate\Support\Facades\Route;
@@ -18,12 +19,9 @@ Route::prefix('v1')->group(static function (): void {
         });
     });
 
-    Route::prefix('posts')->group(static function (): void {
-        Route::middleware(['auth:sanctum'])->group(static function (): void {
-            Route::apiResource('', PostController::class)->only(['index', 'store', 'show', 'update', 'destroy']);
-            Route::post('{post}/view', [PostController::class, 'incrementViews']);
-            Route::post('{post}/like', [LikeController::class, 'like']);
-            Route::delete('{post}/unlike', [LikeController::class, 'unlike']);
-        });
-    });
+    Route::apiResource('posts', PostController::class)->only(['index', 'store', 'show', 'update', 'destroy'])->middleware(['auth:sanctum']);
+    Route::post('posts/{post}/view', [PostController::class, 'incrementViews'])->middleware(['auth:sanctum']);
+    Route::post('posts/{post}/like', [LikeController::class, 'like'])->middleware(['auth:sanctum']);
+    Route::delete('posts/{post}/unlike', [LikeController::class, 'unlike'])->middleware(['auth:sanctum']);
+    Route::apiResource('posts.comments', CommentController::class)->shallow()->middleware(['auth:sanctum']);
 });
