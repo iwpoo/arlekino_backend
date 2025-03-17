@@ -5,7 +5,7 @@ namespace App\Http\Controllers\API\v1\Post;
 use App\Http\Controllers\Controller;
 use App\Models\Follow;
 use App\Models\Post;
-use DB;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
