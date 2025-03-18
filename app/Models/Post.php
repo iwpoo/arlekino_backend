@@ -13,8 +13,7 @@ class Post extends Model
     use HasFactory;
 
     protected $fillable = [
-        'title',
-        'description',
+        'content',
         'views_count',
         'shares_count',
         'likes_count',

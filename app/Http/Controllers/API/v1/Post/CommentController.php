@@ -16,12 +16,9 @@ class CommentController extends Controller
     {
         $postId = $request->route('post');
 
-        $comments = Comment::with(['user', 'children' => function ($query) {
-            $query->with(['user', 'children' => function ($query) {
-                $query->with(['user', 'children']);
-            }]);
-        }])
-        ->where('post_id', $postId)
+        // Загружаем корневые комментарии и их прямых детей
+        $comments = Comment::with(['user', 'children.user'])
+            ->where('post_id', $postId)
             ->whereNull('parent_id')
             ->orderByDesc('likes_count')
             ->paginate(10);

@@ -69,15 +69,13 @@ class PostController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'files' => 'nullable|array',
+            'files' => 'required|array',
             'files.*' => 'file|mimes:jpeg,png,jpg,gif,mp4|max:20480',
+            'content' => 'nullable|string',
         ]);
 
         $post = $request->user()->posts()->create([
-            'title' => $validated['title'],
-            'description' => $validated['description'] ?? null,
+            'content' => $validated['content'] ?? null,
         ]);
 
         if ($request->hasFile('files')) {
@@ -113,8 +111,7 @@ class PostController extends Controller
         }
 
         $validated = $request->validate([
-            'title' => 'sometimes|required|string|max:255',
-            'description' => 'nullable|string',
+            'content' => 'nullable|string',
         ]);
 
         $post->update($validated);
