@@ -6,24 +6,39 @@ use App\Http\Controllers\Controller;
 use App\Models\Comment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class CommentController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
+
     public function index(Request $request): JsonResponse
     {
         $postId = $request->route('post');
+        $page = $request->input('page', 1);
 
-        // Загружаем корневые комментарии и их прямых детей
+        $totalCommentsCount = Cache::remember("post_{$postId}_total_comments", now()->addMinutes(10), function () use ($postId) {
+            return Comment::where('post_id', $postId)->count();
+        });
+
         $comments = Comment::with(['user', 'children.user'])
             ->where('post_id', $postId)
             ->whereNull('parent_id')
             ->orderByDesc('likes_count')
-            ->paginate(10);
+            ->paginate(10, ['*'], 'page', $page);
 
-        return response()->json($comments);
+        return response()->json([
+            'data' => $comments->items(),
+            'meta' => [
+                'current_page' => $comments->currentPage(),
+                'last_page' => $comments->lastPage(),
+                'per_page' => $comments->perPage(),
+                'total' => $comments->total(),
+                'total_comments_count' => $totalCommentsCount,
+            ],
+        ]);
     }
 
     /**

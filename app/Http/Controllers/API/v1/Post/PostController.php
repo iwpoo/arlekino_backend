@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\ValidationException;
 
 class PostController extends Controller
 {
@@ -68,11 +69,15 @@ class PostController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'files' => 'required|array',
-            'files.*' => 'file|mimes:jpeg,png,jpg,gif,mp4|max:20480',
-            'content' => 'nullable|string',
-        ]);
+        try {
+            $validated = $request->validate([
+                'files' => 'required|array',
+                'files.*' => 'file|mimes:jpeg,png,jpg,gif,mp4',
+                'content' => 'nullable|string',
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json($e->errors(), 422);
+        }
 
         $post = $request->user()->posts()->create([
             'content' => $validated['content'] ?? null,
