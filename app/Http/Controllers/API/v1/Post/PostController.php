@@ -27,8 +27,8 @@ class PostController extends Controller
             $followingIds = Follow::where('follower_id', $userId)
                 ->pluck('following_id');
 
-            $posts = Post::whereIn('user_id', $followingIds)
-                ->where('is_published', true)
+            $posts = Post::whereIn('posts.user_id', $followingIds)
+            ->where('is_published', true)
                 ->with(['user', 'files', 'comments'])
                 ->leftJoin('likes as user_likes', function ($join) use ($userId) {
                     $join->on('posts.id', '=', 'user_likes.post_id')
@@ -44,8 +44,8 @@ class PostController extends Controller
             $followingIds = Follow::where('follower_id', $userId)
                 ->pluck('following_id');
 
-            $posts = Post::whereNotIn('user_id', $followingIds)
-                ->where('is_published', true)
+            $posts = Post::whereNotIn('posts.user_id', $followingIds)
+            ->where('is_published', true)
                 ->with(['user', 'files', 'comments'])
                 ->leftJoin('likes as user_likes', function ($join) use ($userId) {
                     $join->on('posts.id', '=', 'user_likes.post_id')
