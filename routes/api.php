@@ -5,6 +5,7 @@ use App\Http\Controllers\API\v1\Post\CommentController;
 use App\Http\Controllers\API\v1\Post\LikeController;
 use App\Http\Controllers\API\v1\Post\PostController;
 use App\Http\Controllers\API\v1\StoryController;
+use App\Http\Controllers\API\v1\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(static function (): void {
@@ -27,4 +28,7 @@ Route::prefix('v1')->group(static function (): void {
     Route::apiResource('posts.comments', CommentController::class)->shallow()->middleware(['auth:sanctum']);
 
     Route::apiResource('stories', StoryController::class)->only(['index', 'store', 'show', 'destroy'])->middleware(['auth:sanctum']);
+    Route::get('stories/user/{user}', [StoryController::class, 'userStories'])->middleware(['auth:sanctum']);
+
+    Route::get('users/with-story', [UserController::class, 'getUsersWithStories'])->middleware(['auth:sanctum']);
 });

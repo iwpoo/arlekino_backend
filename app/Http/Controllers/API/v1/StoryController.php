@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API\v1;
 use App\Http\Controllers\Controller;
 use App\Models\Follow;
 use App\Models\Story;
+use App\Models\User;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -68,27 +69,31 @@ class StoryController extends Controller
             ], 500);
         }
     }
+
     /**
      * Display the specified resource.
      */
-    public function show(Story $story)
+    public function show(Story $story): JsonResponse
     {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Story $story)
-    {
-        //
+        return response()->json($story);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Story $story)
+    public function destroy(Request $request, Story $story): JsonResponse
     {
-        //
+        if ($story->user_id !== $request->user()->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $story->delete();
+
+        return response()->json(['message' => 'Story deleted successfully']);
+    }
+
+    public function userStories(User $user): JsonResponse
+    {
+        return response()->json($user->stories()->get());
     }
 }
