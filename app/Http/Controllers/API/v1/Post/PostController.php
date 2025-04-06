@@ -41,19 +41,14 @@ class PostController extends Controller
                 ->orderByDesc('posts.created_at')
                 ->paginate($perPage);
         } elseif ($type === 'recommendations') {
-            $followingIds = Follow::where('follower_id', $userId)
-                ->pluck('following_id');
-
-            $posts = Post::whereNotIn('posts.user_id', $followingIds)
-            ->where('is_published', true)
-                ->with(['user', 'files', 'comments'])
+            $posts = Post::with(['user', 'files', 'comments'])
                 ->leftJoin('likes as user_likes', function ($join) use ($userId) {
                     $join->on('posts.id', '=', 'user_likes.post_id')
                         ->where('user_likes.user_id', $userId);
                 })
                 ->select([
                     'posts.*',
-                    DB::raw('IF(user_likes.id IS NULL, 0, 1) as is_liked')
+                    DB::raw('CASE WHEN user_likes.id IS NULL THEN 0 ELSE 1 END as is_liked')
                 ])
                 ->orderByDesc('likes_count')
                 ->paginate($perPage);
