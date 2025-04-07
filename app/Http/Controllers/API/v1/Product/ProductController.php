@@ -26,18 +26,18 @@ class ProductController extends Controller
             $validated = $request->validate([
                 'files' => 'required|array',
                 'files.*' => 'file|mimes:jpeg,png,jpg,gif,mp4',
-                'content' => 'nullable|string',
-                'price' => 'required',
-                'discount' => 'nullable|integer',
-            //    'quantity',
-            //    'condition',
-            //    'refund',
-            //    'inStock',
-            //    'points',
-            //    'views_count',
-            //    'shares_count',
-            //    'likes_count',
-            //    'reviews_count',
+                'content' => 'nullable|string|max:5000',
+                'price' => 'required|numeric|min:0',
+                'discount' => 'nullable|integer|min:0|max:100',
+                'quantity' => 'required|integer|min:0',
+                'condition' => 'required|string|in:new,used,refurbished',
+                'refund' => 'required|boolean',
+                'inStock' => 'required|boolean',
+                'points' => 'required',
+                'views_count' => 'nullable|integer|min:0',
+                'shares_count' => 'nullable|integer|min:0',
+                'likes_count' => 'nullable|integer|min:0',
+                'reviews_count' => 'nullable|integer|min:0',
             ]);
         } catch (ValidationException $e) {
             return response()->json($e->errors(), 422);
@@ -49,7 +49,7 @@ class ProductController extends Controller
 
         if ($request->hasFile('files')) {
             foreach ($request->file('files') as $file) {
-                $path = $file->store('post_files', 'public');
+                $path = $file->store('product_files', 'public');
                 $post->files()->create([
                     'file_path' => $path,
                     'file_type' => strtok($file->getClientMimeType(), '/'),
