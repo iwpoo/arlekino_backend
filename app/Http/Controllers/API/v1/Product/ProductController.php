@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\API\v1\Product;
 
 use App\Http\Controllers\Controller;
+use App\Models\Follow;
 use App\Models\Product;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -12,28 +14,50 @@ class ProductController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request): JsonResponse
     {
-        //
+        $userId = $request->user()->id;
+
+        $type = $request->query('type', 'subscriptions');
+        $perPage = $request->query('per_page', 10);
+
+        if ($type === 'subscriptions') {
+            $followingIds = Follow::where('follower_id', $userId)
+                ->pluck('following_id');
+
+            $posts = Product::whereIn('products.user_id', $followingIds)
+                ->with(['user', 'files'])
+                ->orderByDesc('products.created_at')
+                ->paginate($perPage);
+        } elseif ($type === 'recommendations') {
+            $posts = Product::with(['user', 'files'])
+                ->orderByDesc('likes_count')
+                ->paginate($perPage);
+        } else {
+            return response()->json(['error' => 'Invalid type parameter'], 400);
+        }
+
+        return response()->json($posts);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         try {
             $validated = $request->validate([
                 'files' => 'required|array',
                 'files.*' => 'file|mimes:jpeg,png,jpg,gif,mp4',
+                'title' => 'required|string|max:255',
                 'content' => 'nullable|string|max:5000',
                 'price' => 'required|numeric|min:0',
                 'discount' => 'nullable|integer|min:0|max:100',
                 'quantity' => 'required|integer|min:0',
-                'condition' => 'required|string|in:new,used,refurbished',
-                'refund' => 'required|boolean',
-                'inStock' => 'required|boolean',
-                'points' => 'required',
+                'condition' => 'required|integer',
+                'refund' => 'nullable|boolean',
+                'inStock' => 'nullable|boolean',
+                'points' => 'nullable',
                 'views_count' => 'nullable|integer|min:0',
                 'shares_count' => 'nullable|integer|min:0',
                 'likes_count' => 'nullable|integer|min:0',
@@ -43,29 +67,37 @@ class ProductController extends Controller
             return response()->json($e->errors(), 422);
         }
 
-        $post = $request->user()->posts()->create([
+        $product = $request->user()->products()->create([
+            'title' => $validated['title'],
             'content' => $validated['content'] ?? null,
+            'price' => $validated['price'],
+            'discount' => $validated['discount'] ?? null,
+            'quantity' => $validated['quantity'],
+            'condition' => $validated['condition'],
+            'refund' => $validated['refund'],
+            'inStock' => $validated['inStock'],
+            'points' => $validated['points'],
         ]);
 
         if ($request->hasFile('files')) {
             foreach ($request->file('files') as $file) {
                 $path = $file->store('product_files', 'public');
-                $post->files()->create([
+                $product->files()->create([
                     'file_path' => $path,
                     'file_type' => strtok($file->getClientMimeType(), '/'),
                 ]);
             }
         }
 
-        return response()->json($post, 201);
+        return response()->json($product, 201);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(Product $product)
+    public function show(Product $product): JsonResponse
     {
-        //
+        return response()->json($product);
     }
 
     /**
@@ -79,8 +111,14 @@ class ProductController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Product $product)
+    public function destroy(Request $request, Product $product): JsonResponse
     {
-        //
+        if ($product->user_id !== $request->user()->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $product->delete();
+
+        return response()->json(['message' => 'Product deleted successfully']);
     }
 }
