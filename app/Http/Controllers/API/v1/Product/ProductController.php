@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\API\v1\Product;
 
+use App\Enums\DiscountType;
+use App\Enums\ItemCondition;
 use App\Http\Controllers\Controller;
 use App\Models\Follow;
 use App\Models\Product;
@@ -52,12 +54,13 @@ class ProductController extends Controller
                 'title' => 'required|string|max:255',
                 'content' => 'nullable|string|max:5000',
                 'price' => 'required|numeric|min:0',
-                'discount' => 'nullable|integer|min:0|max:100',
+                'discountType' => ['nullable', 'string', DiscountType::rule()],
+                'discountValue' => 'nullable|integer|min:0',
                 'quantity' => 'required|integer|min:0',
-                'condition' => 'required|integer',
+                'condition' => ['required', 'string', ItemCondition::rule()],
                 'refund' => 'nullable|boolean',
                 'inStock' => 'nullable|boolean',
-                'points' => 'nullable',
+                'points' => 'required|string',
                 'views_count' => 'nullable|integer|min:0',
                 'shares_count' => 'nullable|integer|min:0',
                 'likes_count' => 'nullable|integer|min:0',
@@ -71,7 +74,8 @@ class ProductController extends Controller
             'title' => $validated['title'],
             'content' => $validated['content'] ?? null,
             'price' => $validated['price'],
-            'discount' => $validated['discount'] ?? null,
+            'discountType' => $validated['discountType'] ?? null,
+            'discountValue' => $validated['discountValue'] ?? null,
             'quantity' => $validated['quantity'],
             'condition' => $validated['condition'],
             'refund' => $validated['refund'],

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\DiscountType;
+use App\Enums\ItemCondition;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,7 +18,8 @@ class Product extends Model
         'title',
         'content',
         'price',
-        'discount',
+        'discountType',
+        'discountValue',
         'quantity',
         'condition',
         'refund',
@@ -26,6 +29,11 @@ class Product extends Model
         'shares_count',
         'likes_count',
         'reviews_count',
+    ];
+
+    protected $casts = [
+        'condition' => ItemCondition::class,
+        'discountType' => DiscountType::class,
     ];
 
     public function user(): BelongsTo
