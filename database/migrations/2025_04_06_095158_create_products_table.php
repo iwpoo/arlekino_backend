@@ -17,9 +17,10 @@ return new class extends Migration
             $table->string('title');
             $table->text('content')->nullable();
             $table->decimal('price')->default(0);
-            $table->tinyInteger('discount')->nullable();
+            $table->enum('discountType', ['percent', 'fixedSum'])->nullable();
+            $table->integer('discountValue')->nullable();
             $table->integer('quantity')->default(0);
-            $table->tinyInteger('condition');
+            $table->enum('condition', ['new', 'used', 'refurbished']);
             $table->boolean('refund')->default(false);
             $table->boolean('inStock')->default(true);
             $table->json('points');

@@ -15,6 +15,8 @@ class Product extends Model
 
     protected $fillable = [
         'user_id',
+        'category_id',
+        'attributes',
         'title',
         'content',
         'price',
@@ -34,11 +36,17 @@ class Product extends Model
     protected $casts = [
         'condition' => ItemCondition::class,
         'discountType' => DiscountType::class,
+        'attributes' => 'array'
     ];
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
     }
 
     public function files(): HasMany

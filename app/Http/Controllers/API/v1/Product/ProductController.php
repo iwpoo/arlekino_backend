@@ -101,6 +101,7 @@ class ProductController extends Controller
      */
     public function show(Product $product): JsonResponse
     {
+        $product->load(['user', 'files']);
         return response()->json($product);
     }
 
