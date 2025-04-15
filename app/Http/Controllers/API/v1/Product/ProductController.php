@@ -61,6 +61,8 @@ class ProductController extends Controller
                 'refund' => 'nullable|boolean',
                 'inStock' => 'nullable|boolean',
                 'points' => 'required|string',
+                'category_id' => 'required|integer|exists:categories,id',
+                'attributes' => 'required|string',
                 'views_count' => 'nullable|integer|min:0',
                 'shares_count' => 'nullable|integer|min:0',
                 'likes_count' => 'nullable|integer|min:0',
@@ -81,6 +83,8 @@ class ProductController extends Controller
             'refund' => $validated['refund'],
             'inStock' => $validated['inStock'],
             'points' => $validated['points'],
+            'category_id' => $validated['category_id'],
+            'attributes' => $validated['attributes'],
         ]);
 
         if ($request->hasFile('files')) {
