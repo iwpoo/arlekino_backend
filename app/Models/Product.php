@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 
 class Product extends Model
 {
@@ -31,12 +32,14 @@ class Product extends Model
         'shares_count',
         'likes_count',
         'reviews_count',
+        'variants',
+        'similarProducts'
     ];
 
     protected $casts = [
         'condition' => ItemCondition::class,
         'discountType' => DiscountType::class,
-        'attributes' => 'array'
+        'attributes' => 'array',
     ];
 
     public function user(): BelongsTo
@@ -52,5 +55,58 @@ class Product extends Model
     public function files(): HasMany
     {
         return $this->hasMany(ProductFile::class);
+    }
+
+    public function withVariants(): self
+    {
+        $cacheKey = "product_variants_{$this->id}";
+        $cacheDuration = now()->addHours();
+
+        $this->variants = Cache::remember($cacheKey, $cacheDuration, function() {
+            return self::where('user_id', $this->user_id)
+                ->where('id', '!=', $this->id)
+                ->where('category_id', $this->category_id)
+                ->where(function($query) {
+                    $normalizedTitle = mb_strtolower(preg_replace('/\s+/', '', $this->title));
+
+                    $query->whereRaw("LOWER(REGEXP_REPLACE(title, '[[:space:]]', '')) = ?", [$normalizedTitle])
+                        ->orWhere('title', 'like', substr($this->title, 0, 15).'%');
+                })
+                ->orderBy('price')
+                ->limit(15)
+                ->get();
+        });
+
+        return $this;
+    }
+
+    public function similarProducts(int $perPage = 8): self
+    {
+        $cacheKey = "similar_products_{$this->id}_page_" . request()->get('page', 1);
+        $cacheDuration = now()->addHours(12);
+
+        $this->similarProducts = Cache::remember($cacheKey, $cacheDuration, function() use ($perPage) {
+            return self::where('category_id', $this->category_id)
+                ->where('id', '!=', $this->id)
+                ->where(function($query) {
+                    $keywords = explode(' ', $this->title);
+                    foreach (array_slice($keywords, 0, 3) as $keyword) {
+                        $query->orWhere('title', 'like', "%{$keyword}%");
+                    }
+                })
+                ->orderByRaw("
+                CASE
+                    WHEN title LIKE ? THEN 0
+                    WHEN title LIKE ? THEN 1
+                    ELSE 2
+                END",
+                    [$this->title . '%', '%' . $this->title . '%']
+                )
+                ->orderBy('views_count', 'desc')
+                ->with(['files'])
+                ->paginate($perPage);
+        });
+
+        return $this;
     }
 }
