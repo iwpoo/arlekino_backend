@@ -54,14 +54,20 @@ class UserController extends Controller
         $currentUser = $request->user();
 
         $usersWithStories = User::whereHas('stories', function($query) {
-            $query->where('created_at', '>', now()->subDay()); // Сторисы за последние 24 часа
+            $query->where('created_at', '>', now()->subDay());
         })
             ->whereHas('followers', function($query) use ($currentUser) {
-                $query->where('follower_id', $currentUser->id); // Только те, на кого подписан текущий пользователь
+                $query->where('follower_id', $currentUser->id);
             })
             ->with(['stories' => function($query) {
                 $query->where('created_at', '>', now()->subDay())
                     ->select('id', 'user_id', 'file_path', 'file_type', 'created_at');
+            }])
+            ->withCount(['stories as unseen_stories_count' => function($query) use ($currentUser) {
+                $query->where('created_at', '>', now()->subDay())
+                    ->whereDoesntHave('views', function($q) use ($currentUser) {
+                        $q->where('user_id', $currentUser->id);
+                    });
             }])
             ->get();
 

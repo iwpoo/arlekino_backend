@@ -35,6 +35,7 @@ Route::prefix('v1')->group(static function (): void {
 
     Route::apiResource('stories', StoryController::class)->only(['index', 'store', 'show', 'destroy'])->middleware(['auth:sanctum']);
     Route::get('stories/user/{user}', [StoryController::class, 'userStories'])->middleware(['auth:sanctum']);
+    Route::post('stories/{story}/view', [StoryController::class, 'markAsViewed']);
 
     Route::get('users/with-story', [UserController::class, 'getUsersWithStories'])->middleware(['auth:sanctum']);
 });

@@ -96,4 +96,15 @@ class StoryController extends Controller
     {
         return response()->json($user->stories()->get());
     }
+
+    public function markAsViewed(Story $story, Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$story->views()->where('user_id', $user->id)->exists()) {
+            $story->views()->create(['user_id' => $user->id]);
+        }
+
+        return response()->json(['message' => 'Story viewed']);
+    }
 }
