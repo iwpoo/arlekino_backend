@@ -92,11 +92,6 @@ class StoryController extends Controller
         return response()->json(['message' => 'Story deleted successfully']);
     }
 
-    public function userStories(User $user): JsonResponse
-    {
-        return response()->json($user->stories()->get());
-    }
-
     public function markAsViewed(Story $story, Request $request): JsonResponse
     {
         $user = $request->user();

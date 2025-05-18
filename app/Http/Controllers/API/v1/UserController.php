@@ -49,6 +49,11 @@ class UserController extends Controller
         //
     }
 
+    public function userStories(User $user): JsonResponse
+    {
+        return response()->json($user->stories()->get());
+    }
+
     public function getUsersWithStories(Request $request): JsonResponse
     {
         $currentUser = $request->user();
