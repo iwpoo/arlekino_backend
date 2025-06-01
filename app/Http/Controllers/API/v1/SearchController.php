@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API\v1;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Post;
+use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -77,7 +78,7 @@ class SearchController extends Controller
 
     protected function searchProducts(array $keywords, int $perPage)
     {
-        $query = Product::with(['files', 'category']);
+        $query = Product::with(['files', 'category.parent']); // Загружаем родительскую категорию
 
         if (empty($keywords)) {
             return $query->orderBy('views_count', 'desc')
@@ -223,18 +224,72 @@ class SearchController extends Controller
             });
         }
 
+        // Получаем категории с иерархией
+        $categories = $query->with('category.parent')
+            ->get()
+            ->pluck('category')
+            ->filter()
+            ->unique('id')
+            ->map(function($category) {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'parent' => $category->parent ? [
+                        'id' => $category->parent->id,
+                        'name' => $category->parent->name
+                    ] : null,
+                    'full_path' => $this->getCategoryPath($category)
+                ];
+            })
+            ->values();
+
+        // Группируем по родительским категориям
+        $groupedCategories = $categories->groupBy(function($item) {
+            return $item['parent'] ? $item['parent']['id'] : 'root';
+        });
+
+        // Формируем древовидную структуру
+        $categoryTree = $this->buildCategoryTree($groupedCategories);
+
         return [
             'price_range' => [
                 'min' => $query->min('price'),
                 'max' => $query->max('price'),
             ],
-            'categories' => $query->join('categories', 'products.category_id', '=', 'categories.id')
-                ->select('categories.id', 'categories.name', DB::raw('COUNT(*) as count'))
-                ->groupBy('categories.id', 'categories.name')
-                ->orderByDesc('count')
-                ->limit(10)
-                ->get(),
+            'categories' => $categoryTree,
         ];
+    }
+
+    protected function getCategoryPath(Category $category): string
+    {
+        $path = [];
+        $current = $category;
+
+        while ($current) {
+            array_unshift($path, $current->name);
+            $current = $current->parent;
+        }
+
+        return implode(' / ', $path);
+    }
+
+    protected function buildCategoryTree($groupedCategories, $parentId = 'root')
+    {
+        if (!$groupedCategories->has($parentId)) {
+            return [];
+        }
+
+        return $groupedCategories->get($parentId)->map(function($category) use ($groupedCategories) {
+            $children = $this->buildCategoryTree($groupedCategories, $category['id']);
+
+            return [
+                'id' => $category['id'],
+                'name' => $category['name'],
+                'full_path' => $category['full_path'],
+                'count' => Product::where('category_id', $category['id'])->count(),
+                'children' => $children
+            ];
+        })->toArray();
     }
 
     protected function getPostFilters(string $query)
@@ -258,12 +313,25 @@ class SearchController extends Controller
             ->select([
                 'users.id',
                 'users.name',
-                DB::raw('COUNT(*) as count')
+                'users.username',
+                'users.avatar_path',
+                DB::raw('COUNT(*) as post_count'),
+                DB::raw('(SELECT COUNT(*) FROM follows WHERE following_id = users.id) as followers_count')
             ])
-            ->groupBy('users.id', 'users.name')
-            ->orderByDesc('count')
+            ->groupBy('users.id', 'users.name', 'users.username', 'users.avatar_path')
+            ->orderByDesc('post_count')
             ->limit(5)
-            ->get();
+            ->get()
+            ->map(function($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'username' => $user->username,
+                    'avatar_url' => $user->avatar_url,
+                    'post_count' => $user->post_count,
+                    'followers_count' => $user->followers_count
+                ];
+            });
 
         return [
             'popular_authors' => $popularAuthors,
