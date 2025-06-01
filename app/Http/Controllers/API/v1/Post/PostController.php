@@ -98,6 +98,8 @@ class PostController extends Controller
     {
         $post->increment('views_count');
 
+        $post->load(['user', 'files', 'comments']);
+
         return response()->json($post);
     }
 
