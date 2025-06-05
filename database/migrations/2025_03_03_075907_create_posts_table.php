@@ -21,6 +21,8 @@ return new class extends Migration
             $table->unsignedInteger('comments_count')->default(0);
             $table->boolean('is_published')->default(true);
             $table->timestamps();
+
+            $table->fullText(['content']);
         });
     }
 
