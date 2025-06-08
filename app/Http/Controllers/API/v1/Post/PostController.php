@@ -96,9 +96,11 @@ class PostController extends Controller
      */
     public function show(Post $post): JsonResponse
     {
-        $post->increment('views_count');
+        $this->incrementViewsCount($post, auth()->id());
 
         $post->load(['user', 'files', 'comments']);
+
+        $post->is_liked = $post->isLikedByUser($post->id, auth()->id());
 
         return response()->json($post);
     }
@@ -143,6 +145,13 @@ class PostController extends Controller
 
         $userId = auth()->id();
 
+        $this->incrementViewsCount($post, $userId);
+
+        return response()->json(['message' => 'Просмотр засчитан']);
+    }
+
+    private function incrementViewsCount(Post $post, int $userId): void
+    {
         $cacheKey = "post:$post->id:user:$userId";
 
         if (!Cache::has($cacheKey)) {
@@ -150,7 +159,5 @@ class PostController extends Controller
 
             $post->increment('views_count');
         }
-
-        return response()->json(['message' => 'Просмотр засчитан']);
     }
 }
