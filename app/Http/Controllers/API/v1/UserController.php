@@ -3,50 +3,91 @@
 namespace App\Http\Controllers\API\v1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\User;
+use App\Services\Contracts\ProfileServiceInterface;
+use DB;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Log;
+use Throwable;
 
 class UserController extends Controller
 {
+    /**
+     * @param ProfileServiceInterface $profileService
+     */
+    public function __construct(
+        protected ProfileServiceInterface $profileService
+    ) {}
+
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        //
-    }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(User $user)
+    public function show(User $user): JsonResponse
     {
-        //
+        $user->loadCount(['followers', 'following']);
+
+        $user->load(['posts', 'products']);
+
+        return response()->json($user);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, User $user)
+    public function update(ProfileUpdateRequest $request, User $user): JsonResponse
     {
-        //
+        if (auth()->id() !== $user->id) {
+            return response()->json(['error' => 'No access'], 403);
+        }
+
+        try {
+//            dispatch(new UpdateProfileJob($user, $request->validated()));
+
+            $result = $this->profileService->update($request->validated());
+            return response()->json($result);
+        } catch (Exception $e) {
+            Log::error('Profile update error: '.$e->getMessage());
+            return response()->json(['error' => 'Server error'], 500);
+        }
     }
 
     /**
      * Remove the specified resource from storage.
+     * @throws Throwable
      */
-    public function destroy(User $user)
+    public function destroy(User $user): JsonResponse
     {
-        //
+        DB::beginTransaction();
+
+        try {
+            if (auth()->id() !== $user->id) {
+                return response()->json(['error' => 'No access'], 403);
+            }
+
+            $user->delete();
+
+            $user->tokens()->delete();
+
+            DB::commit();
+
+            Log::info("User account {$this->user->id} has been deleted");
+            return response()->json(['message' => 'Account successfully deleted']);
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Account deletion error: ' . $e->getMessage());
+            return response()->json(['error' => 'Server error'], 500);
+        }
     }
 
     public function userStories(User $user): JsonResponse

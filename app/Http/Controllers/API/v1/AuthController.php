@@ -15,7 +15,8 @@ class AuthController extends Controller
     public function register(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string',
+            'name' => 'required|string|max:255',
+            'role' => 'required|string|max:255',
             'username' => 'required|string|unique:users',
             'email' => 'required|string|email|unique:users',
             'password' => 'required|string|min:8',
@@ -27,6 +28,7 @@ class AuthController extends Controller
 
         $user = User::create([
             'name' => $request->name,
+            'role' => $request->role ?? 'client',
             'username' => $request->username,
             'email' => $request->email,
             'password' => Hash::make($request->password),
@@ -67,7 +69,7 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        return response()->json([$request->user()]);
+        return response()->json($request->user());
     }
 
     public function verifyEmail($id, $hash): JsonResponse
