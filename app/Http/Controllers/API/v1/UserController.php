@@ -35,7 +35,7 @@ class UserController extends Controller
      */
     public function show(User $user): JsonResponse
     {
-        $user->loadCount(['followers', 'following']);
+        $user->loadCount(['followers', 'following', 'posts']);
 
         $user->load(['posts', 'products']);
 
@@ -81,7 +81,7 @@ class UserController extends Controller
 
             DB::commit();
 
-            Log::info("User account {$this->user->id} has been deleted");
+            Log::info("User account $user->id has been deleted");
             return response()->json(['message' => 'Account successfully deleted']);
         } catch (Exception $e) {
             DB::rollBack();

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Helpers\MediaUploader;
 use App\Services\ClientProfileService;
 use App\Services\Contracts\ProfileServiceInterface;
 use App\Services\SellerProfileService;
@@ -14,13 +15,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(ProfileServiceInterface::class, function ($app) {
+        $this->app->singleton(ProfileServiceInterface::class, function ($app) {
             $user = $app->make('request')->route('user');
 
             if ($user->isClient()) {
-                return new ClientProfileService();
+                return new ClientProfileService($app->make(MediaUploader::class));
             } else {
-                return new SellerProfileService();
+                return new SellerProfileService($app->make(MediaUploader::class));
             }
         });
     }

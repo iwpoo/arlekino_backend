@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API\v1;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Auth;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,27 +45,26 @@ class AuthController extends Controller
 
     public function login(Request $request): JsonResponse
     {
-        $request->validate([
+        $credentials = $request->validate([
             'email' => 'required|string|email',
             'password' => 'required|string|min:8',
         ]);
 
-        $user = User::where('email', $request->email)->first();
-
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (!Auth::attempt($credentials)) {
             return response()->json(['error' => 'The provided credentials are incorrect.'], 422);
         }
 
-        $token = $user->createToken('auth_token', [], now()->addMinutes(config('sanctum.expiration')))->plainTextToken;
+        $request->session()->regenerate();
 
-        return response()->json(compact('token'), 201);
+        return response()->json(['message' => 'Logged in']);
     }
 
-    public function logout(Request $request): JsonResponse
+    public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
-
-        return response()->json(['message' => 'Successfully logged out']);
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        return response()->json(['message' => 'Logged out']);
     }
 
     public function me(Request $request): JsonResponse
