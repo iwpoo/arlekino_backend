@@ -37,7 +37,7 @@ class UserController extends Controller
     {
         $user->loadCount(['followers', 'following', 'posts']);
 
-        $user->load(['posts', 'products']);
+        $user->load(['posts.files', 'products.files']);
 
         return response()->json($user);
     }
@@ -52,12 +52,12 @@ class UserController extends Controller
         }
 
         try {
-//            dispatch(new UpdateProfileJob($user, $request->validated()));
-
             $result = $this->profileService->update($request->validated());
-            return response()->json($result);
-        } catch (Exception $e) {
-            Log::error('Profile update error: '.$e->getMessage());
+            return response()->json([
+                'data' => $result,
+            ]);
+        } catch (Throwable $e) {
+            Log::error('Profile update error: ' . $e->getMessage());
             return response()->json(['error' => 'Server error'], 500);
         }
     }
@@ -76,8 +76,6 @@ class UserController extends Controller
             }
 
             $user->delete();
-
-            $user->tokens()->delete();
 
             DB::commit();
 
