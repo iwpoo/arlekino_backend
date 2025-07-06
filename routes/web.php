@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\API\v1\AuthController;
+use App\Http\Controllers\API\v1\OrderController;
 use App\Http\Controllers\API\v1\Post\CommentController;
 use App\Http\Controllers\API\v1\Post\LikeController;
 use App\Http\Controllers\API\v1\Post\PostController;
@@ -41,3 +42,5 @@ Route::get('users/with-story', [UserController::class, 'getUsersWithStories'])->
 Route::get('users/{user}/stories', [UserController::class, 'userStories'])->middleware(['auth']);
 
 Route::get('/search', [SearchController::class, 'search'])->middleware(['auth']);
+
+Route::resource('orders', OrderController::class)->only(['index', 'show', 'update', 'destroy'])->middleware(['auth']);
