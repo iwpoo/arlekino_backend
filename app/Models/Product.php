@@ -7,6 +7,7 @@ use App\Enums\ItemCondition;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Cache;
 
@@ -55,6 +56,11 @@ class Product extends Model
     public function files(): HasMany
     {
         return $this->hasMany(ProductFile::class);
+    }
+
+    public function favoritedBy(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'favorite_products');
     }
 
     public function withVariants(): self
@@ -108,5 +114,23 @@ class Product extends Model
         });
 
         return $this;
+    }
+
+    public function scopeWithIsFavorite($query, $userId = null)
+    {
+        if (!$userId && auth()->check()) {
+            $userId = auth()->id();
+        }
+
+        if ($userId) {
+            $query->addSelect([
+                'is_favorite' => FavoriteProduct::selectRaw('1')
+                    ->whereColumn('product_id', 'products.id')
+                    ->where('user_id', $userId)
+                    ->limit(1)
+            ]);
+        }
+
+        return $query;
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\API\v1\AuthController;
+use App\Http\Controllers\API\v1\FavoriteProductController;
 use App\Http\Controllers\API\v1\OrderController;
 use App\Http\Controllers\API\v1\Post\CommentController;
 use App\Http\Controllers\API\v1\Post\LikeController;
@@ -44,3 +45,10 @@ Route::get('users/{user}/stories', [UserController::class, 'userStories'])->midd
 Route::get('/search', [SearchController::class, 'search'])->middleware(['auth']);
 
 Route::resource('orders', OrderController::class)->only(['index', 'show', 'update', 'destroy'])->middleware(['auth']);
+
+Route::middleware('auth')->group(static function (): void {
+    Route::get('/favorites', [FavoriteProductController::class, 'index']);
+    Route::post('/favorites/{product}', [FavoriteProductController::class, 'store']);
+    Route::delete('/favorites/{product}', [FavoriteProductController::class, 'destroy']);
+    Route::get('/favorites/check/{product}', [FavoriteProductController::class, 'check']);
+});
