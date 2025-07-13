@@ -30,7 +30,9 @@ class ProfileUpdateRequest extends FormRequest
                 'email' => ['nullable', 'email', 'unique:users,email,'.$user->id],
                 'gender' => ['nullable', 'in:male,female,other'],
                 'currency' => ['nullable', 'string', 'size:3'],
-                'payment_methods' => ['nullable', 'array', 'in:card,paypal,apple_pay,gpay'],
+                'payment_methods' => ['nullable', 'array'],
+                'payment_methods.*' => ['in:card,paypal,apple_pay,gpay'],
+                'card_number' => ['nullable', 'string', 'max:16'],
                 'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
             ];
         } else {

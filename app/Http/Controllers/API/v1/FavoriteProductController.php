@@ -17,7 +17,7 @@ class FavoriteProductController extends Controller
     public function index(): JsonResponse
     {
         $cacheKey = 'user:' . auth()->id() . ':favorites';
-        $expiration = now()->addHours(2);
+        $expiration = now()->addMinutes();
 
         $favorites = Cache::remember($cacheKey, $expiration, function () {
             return auth()->user()->favoriteProducts()

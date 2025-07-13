@@ -27,7 +27,7 @@ class UserController extends Controller
      */
     public function show(User $user): JsonResponse
     {
-        $user->loadCount(['followers', 'following', 'posts']);
+        $user->loadCount(['followers', 'following', 'posts', 'favoriteProducts']);
 
         $user->load(['posts.files', 'products.files']);
 
@@ -44,6 +44,7 @@ class UserController extends Controller
         }
 
         try {
+            \Log::debug('File upload data:', [$request->avatar]);
             $result = $this->profileService->update($request->validated());
             return response()->json([
                 'data' => $result,
