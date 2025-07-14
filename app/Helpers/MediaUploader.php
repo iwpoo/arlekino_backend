@@ -8,8 +8,8 @@ class MediaUploader
 {
     public function upload($file, string $disk, string $directory, ?string $oldPath = null): string
     {
-        if ($oldPath && Storage::exists($oldPath)) {
-            Storage::delete($oldPath);
+        if ($oldPath && Storage::disk($disk)->exists($oldPath)) {
+            Storage::disk($disk)->delete($oldPath);
         }
 
         return $file->store($directory, $disk);
