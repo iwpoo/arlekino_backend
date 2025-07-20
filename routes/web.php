@@ -9,6 +9,7 @@ use App\Http\Controllers\API\v1\Post\PostController;
 use App\Http\Controllers\API\v1\Product\CategoryController;
 use App\Http\Controllers\API\v1\Product\ProductController;
 use App\Http\Controllers\API\v1\SearchController;
+use App\Http\Controllers\API\v1\SessionController;
 use App\Http\Controllers\API\v1\StoryController;
 use App\Http\Controllers\API\v1\UserController;
 use Illuminate\Support\Facades\Route;
@@ -42,9 +43,18 @@ Route::resource('users', UserController::class)->only(['show', 'update', 'destro
 Route::get('users/with-story', [UserController::class, 'getUsersWithStories'])->middleware(['auth']);
 Route::get('users/{user}/stories', [UserController::class, 'userStories'])->middleware(['auth']);
 
+Route::middleware('auth')->group(function () {
+    Route::get('/sessions', [SessionController::class, 'index']);
+    Route::delete('/sessions/{id}', [SessionController::class, 'destroy']);
+});
+
 Route::get('/search', [SearchController::class, 'search'])->middleware(['auth']);
 
 Route::resource('orders', OrderController::class)->only(['index', 'show', 'update', 'destroy'])->middleware(['auth']);
+Route::middleware('auth')->group(function () {
+    Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus'])->name('order.status.update');
+    Route::get('/orders/{order}/qr', [OrderController::class, 'generateQR'])->name('order.qr.generate');
+});
 
 Route::middleware('auth')->group(static function (): void {
     Route::get('/favorites', [FavoriteProductController::class, 'index']);

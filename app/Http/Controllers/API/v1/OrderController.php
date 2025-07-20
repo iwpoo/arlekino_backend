@@ -3,11 +3,16 @@
 namespace App\Http\Controllers\API\v1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Courier;
 use App\Models\Order;
 use DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
+use chillerlan\QRCode\QRCode;
+use Throwable;
 
 class OrderController extends Controller
 {
@@ -48,6 +53,8 @@ class OrderController extends Controller
             return response()->json(['message' => 'Order created successfully'], 201);
         } catch (ValidationException $e) {
             return response()->json($e->errors(), 422);
+        } catch (Throwable $e) {
+            return response()->json($e->errors(), 500);
         }
     }
 
@@ -87,6 +94,52 @@ class OrderController extends Controller
 
         $order->delete();
         return response()->json(null, 204);
+    }
+
+    public function generateQR(Order $order): JsonResponse
+    {
+        $url = route('order.status.update', ['order' => $order]);
+
+        $qrcode = new QRCode();
+        $imageData = $qrcode->render($url);
+
+        return response()->json(['qrcode' => $imageData]);
+    }
+
+    public function updateStatus(Order $order, Request $request): JsonResponse
+    {
+        RateLimiter::hit($key = $request->bearerToken() ?: 'guest');
+
+        if (RateLimiter::tooManyAttempts($key, 10)) {
+            Log::info('Too many attempts', ['key' => $key]);
+            return response()->json(['error' => 'Слишком много попыток'], 429);
+        }
+
+        $token = $request->bearerToken();
+        if (!$token) {
+            Log::info('Token not provided');
+            return response()->json(['error' => 'Токен не найден'], 401);
+        }
+
+        $isCourier = $order->courier->api_token == $token;
+        if ($isCourier && !$order->status === 'processing') {
+            Log::info('Courier not provided');
+            return response()->json(['error' => 'Доступ запрещен'], 403);
+        }
+
+        $request->validate([
+            'status' => 'required|string|in:pending,processing,assembling,shipped,completed,canceled'
+        ]);
+
+        Log::info("UPDATE PROCESSING STATUS");
+
+        $order->update([
+            'status' => $request->status,
+        ]);
+
+        Log::info("Курьер {$order->courier->id} обновил заказ $order->id на статус 'sent'");
+
+        return response()->json($order);
     }
 
     private function calculateTotal(array $products): float

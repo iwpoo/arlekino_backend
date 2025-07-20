@@ -13,16 +13,22 @@ class Order extends Model
 
     protected $fillable = [
         'user_id',
+        'courier_id',
         'status',
         'total_amount',
         'shipping_address',
         'payment_method',
-        'paid_at'
+        'paid_at',
     ];
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function courier(): BelongsTo
+    {
+        return $this->belongsTo(Courier::class);
     }
 
     public function items(): HasMany

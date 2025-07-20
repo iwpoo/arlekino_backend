@@ -59,7 +59,7 @@ class AuthController extends Controller
         return response()->json(['message' => 'Logged in']);
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request): JsonResponse
     {
         Auth::logout();
         $request->session()->invalidate();
