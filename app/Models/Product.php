@@ -58,6 +58,11 @@ class Product extends Model
         return $this->hasMany(ProductFile::class);
     }
 
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
     public function favoritedBy(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'favorite_products');
@@ -132,5 +137,25 @@ class Product extends Model
         }
 
         return $query;
+    }
+
+    public function getDeliveryPointsAttribute(): array
+    {
+        if (empty($this->points)) {
+            return [];
+        }
+
+        try {
+            $points = json_decode($this->points, true);
+            return is_array($points) ? $points : [];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    public function getFirstDeliveryPointAttribute(): mixed
+    {
+        $points = $this->delivery_points;
+        return !empty($points) ? $points[0] : null;
     }
 }

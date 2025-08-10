@@ -11,8 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->string('card_number', 16)->nullable()->after('payment_methods');
+        Schema::table('orders', function (Blueprint $table) {
+            $table->string('qr_token')->nullable()->after('payment_method');
+            $table->timestamp('expires_at')->nullable()->after('qr_token');
         });
     }
 
@@ -21,8 +22,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('card_number');
+        Schema::table('orders', function (Blueprint $table) {
+            $table->dropColumn('qr_token');
+            $table->dropColumn('expires_at');
         });
     }
 };

@@ -12,9 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->enum('gender', ['male', 'female'])->nullable()->after('email');
-            $table->string('currency', 3)->default('RUB')->after('gender');
-            $table->json('authorized_devices')->nullable()->after('payment_methods');
+            $table->foreignId('default_card_id')
+                ->after('currency')
+                ->nullable()
+                ->constrained('bank_cards')
+                ->onDelete('SET NULL');
         });
     }
 
@@ -24,10 +26,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('gender');
-            $table->dropColumn('currency');
-            $table->dropColumn('payment_method');
-            $table->dropColumn('authorized_devices');
+            $table->dropForeign(['default_card_id']);
+            $table->dropColumn('default_card_id');
         });
     }
 };

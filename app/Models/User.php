@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -34,8 +35,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'description',
         'gender',
         'currency',
-        'payment_methods',
-        'card_number',
+        'default_card_id',
         'authorized_devices',
         'website',
         'shop_cover_path',
@@ -82,6 +82,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->role === 'seller';
     }
 
+    public function isCourier(): bool
+    {
+        return $this->role === 'courier';
+    }
+
     public function posts(): HasMany
     {
         return $this->hasMany(Post::class);
@@ -90,6 +95,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    public function cartItems(): HasMany
+    {
+        return $this->hasMany(CartItem::class);
     }
 
     public function stories(): HasMany
@@ -126,6 +136,31 @@ class User extends Authenticatable implements MustVerifyEmail
     public function warehouseAddresses(): HasMany
     {
         return $this->hasMany(WarehouseAddress::class);
+    }
+
+    public function bankCards(): User|HasMany
+    {
+        return $this->hasMany(BankCard::class);
+    }
+
+    public function defaultCard(): BelongsTo
+    {
+        return $this->belongsTo(BankCard::class, 'default_card_id');
+    }
+
+    public function addresses(): User|HasMany
+    {
+        return $this->hasMany(UserAddress::class);
+    }
+
+    public function defaultAddress(): UserAddress
+    {
+        return $this->hasOne(UserAddress::class)->where('is_default', true);
+    }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
     }
 
     public function getAvatarUrlAttribute(): string
