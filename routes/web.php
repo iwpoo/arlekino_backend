@@ -4,6 +4,7 @@ use App\Http\Controllers\API\v1\AuthController;
 use App\Http\Controllers\API\v1\BankCardController;
 use App\Http\Controllers\API\v1\CartController;
 use App\Http\Controllers\API\v1\FavoriteProductController;
+use App\Http\Controllers\API\v1\NotificationController;
 use App\Http\Controllers\API\v1\OrderController;
 use App\Http\Controllers\API\v1\Post\CommentController;
 use App\Http\Controllers\API\v1\Post\LikeController;
@@ -91,4 +92,10 @@ Route::middleware(['auth', 'role:client'])->group(static function (): void {
 
 Route::middleware(['auth', 'role:client'])->group(static function (): void {
     Route::get('/purchases', [PurchaseController::class, 'index']);
+});
+
+Route::middleware('auth:sanctum')->group(static function (): void {
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 });
