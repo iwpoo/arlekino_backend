@@ -35,10 +35,6 @@ class OrderStatusNotification extends Notification implements ShouldQueue
      */
     public function toDatabase($notifiable): array
     {
-        $actor = $this->forSeller
-            ? $this->order->user->name
-            : $this->order->product->user->name;
-
         return [
             'type' => 'order',
             'message' => $this->getStatusMessage(),
@@ -46,8 +42,6 @@ class OrderStatusNotification extends Notification implements ShouldQueue
             'link' => $this->forSeller
                 ? route('seller.orders.show', $this->order->id)
                 : route('orders.show', $this->order->id),
-            'actor' => $actor,
-            'product_id' => $this->order->product_id
         ];
     }
 

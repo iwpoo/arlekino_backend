@@ -2,18 +2,19 @@
 
 namespace App\Http\Controllers\API\v1;
 
+use App\Events\OrderStatusUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\BankCard;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use chillerlan\QRCode\QROptions;
-use DB;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
@@ -300,6 +301,7 @@ class OrderController extends Controller
             'status' => 'required|string|in:pending,assembling,shipped,completed,canceled'
         ]);
 
+        $oldStatus = $order->status;
         $newStatus = $request->input('status');
 
         $qrRequired = false;
@@ -327,7 +329,7 @@ class OrderController extends Controller
             }
 
             // Проверка срока действия
-            if (now()->gt($order->qr_token_expiry)) {
+            if (now()->gt($order->expires_at)) {
                 Log::info('Expired QR token', [
                     'user_id' => $user->id,
                     'order_id' => $order->id
@@ -419,6 +421,8 @@ class OrderController extends Controller
         }
 
         $order->save();
+
+        event(new OrderStatusUpdated($order, $oldStatus, $newStatus));
 
         Log::info('Order status updated', [
             'order_id' => $order->id,

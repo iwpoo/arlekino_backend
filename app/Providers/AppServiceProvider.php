@@ -2,11 +2,14 @@
 
 namespace App\Providers;
 
+use App\Events\OrderStatusUpdated;
 use App\Helpers\MediaUploader;
+use App\Listeners\SendOrderStatusNotification;
 use App\Services\ClientProfileService;
 use App\Services\Contracts\ProfileServiceInterface;
 use App\Services\SellerProfileService;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Event;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -31,6 +34,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Event::listen(
+            OrderStatusUpdated::class,
+            SendOrderStatusNotification::class,
+        );
     }
 }
