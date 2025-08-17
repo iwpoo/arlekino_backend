@@ -18,4 +18,9 @@ class OrderItem extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
+    public function seller()
+    {
+        return $this->hasOneThrough(User::class, Product::class, 'id', 'id', 'product_id', 'user_id');
+    }
 }

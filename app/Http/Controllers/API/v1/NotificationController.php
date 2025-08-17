@@ -12,11 +12,12 @@ class NotificationController extends Controller
     {
         $notifications = $request->user()
             ->notifications()
+            ->latest()
             ->paginate(20);
 
         return response()->json([
-            'notifications' => $notifications,
-            'unread_count' => $request->user()->unreadNotifications->count()
+            'notifications' => $notifications->items(),
+            'unread_count' => $request->user()->unreadNotifications()->count()
         ]);
     }
 

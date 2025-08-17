@@ -21,16 +21,8 @@ class SendOrderStatusNotification
      */
     public function handle(object $event): void
     {
-        // Уведомление покупателю
         $event->order->user->notify(
             new OrderStatusNotification($event->order, $event->newStatus)
         );
-
-        // Уведомление продавцу (если статус требует)
-        if (in_array($event->newStatus, ['pending', 'cancelled'])) {
-            $event->order->product->user->notify(
-                new OrderStatusNotification($event->order, $event->newStatus, true)
-            );
-        }
     }
 }

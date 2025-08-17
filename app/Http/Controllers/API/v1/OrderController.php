@@ -1,7 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\API\v1;
 
+use App\Enums\DiscountType;
+use App\Events\OrderCreate;
 use App\Events\OrderStatusUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\BankCard;
@@ -9,146 +13,160 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use chillerlan\QRCode\QROptions;
+use chillerlan\QRCode\QRCode;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
-use chillerlan\QRCode\QRCode;
 use InvalidArgumentException;
 use Throwable;
-use Illuminate\Support\Facades\Gate;
 
 class OrderController extends Controller
 {
+    /** Статусы, с которыми можно работать QR */
+    private const QR_ALLOWED_STATUSES = ['assembling', 'shipped'];
+
+    /** Допустимые статусы переходов */
+    private const ALLOWED_STATUSES_ALL = ['pending', 'assembling', 'shipped', 'completed', 'canceled'];
+
+    /** Стоимость доставки (вынеси в config при желании) */
+    private const DELIVERY_COST = 299;
+
     /**
-     * Display a listing of the resource.
+     * Список заказов продавца — все заказы, где есть позиции с его товарами.
+     * GET /api/v1/seller/orders  (вынесено в отдельный метод, чтобы не путать роли)
      */
     public function index(): JsonResponse
     {
-        $orders = Order::where('user_id', auth()->id())
-            ->with(['user', 'items', 'items.product'])
-            ->paginate(10);
+        $sellerId = (int)auth()->id();
 
-        // Добавляем данные QR-кода для нужных статусов
-        $orders->getCollection()->transform(static function ($order): Order {
-            if (in_array($order->status, ['assembling', 'shipped'])) {
-                $order->qr_data = [
-                    'has_qr' => !is_null($order->qr_token) && now()->lt($order->expires_at),
-                    'expires_at' => $order->expires_at,
-                    'target_status' => $order->status === 'assembling' ? 'shipped' : 'completed'
-                ];
-            }
-            return $order;
-        });
+        $orders = Order::query()
+            ->whereHas('items.product', static function ($q) use ($sellerId) {
+                $q->where('user_id', $sellerId);
+            })
+            ->with([
+                'user:id,name,email',
+                'items' => static function ($q) use ($sellerId) {
+                    $q->whereHas('product', static function ($q2) use ($sellerId) {
+                        $q2->where('user_id', $sellerId);
+                    })->with(['product']);
+                },
+            ])
+            ->latest('id')
+            ->paginate(10);
 
         return response()->json($orders);
     }
 
+    /**
+     * Предрасчёт корзины по списку cart_item.id
+     */
     public function precalculate(Request $request): JsonResponse
     {
         $request->validate([
-            'item_ids' => 'required|array',
-            'item_ids.*' => 'exists:cart_items,id,user_id,'.Auth::id()
+            'item_ids'   => 'required|array',
+            'item_ids.*' => 'exists:cart_items,id,user_id,' . Auth::id(),
         ]);
 
-        $itemIds = Arr::flatten($request->item_ids);
-        $itemIds = array_filter($itemIds, 'is_int');
+        // Плоский массив ID и фильтрация на случай мусора
+        $itemIds = array_values(array_filter(Arr::flatten($request->input('item_ids', [])), 'is_int'));
 
-        // Здесь должна быть логика расчета стоимости
-        // В реальном проекте нужно получать актуальные цены из БД
-
-        $itemsTotal = Auth::user()
+        $items = Auth::user()
             ->cartItems()
             ->whereIn('id', $itemIds)
             ->with('product')
-            ->get()
-            ->sum(function ($item) {
-                return $item->quantity * $item->product->price;
-            });
+            ->get();
+
+        $itemsTotal = $items->sum(function ($cartItem) {
+            return $cartItem->quantity * $this->discountedPrice($cartItem->product);
+        });
 
         return response()->json([
             'total' => [
-                'items' => $itemsTotal,
-                'delivery' => 299, // По умолчанию первая доставка
-                'total' => $itemsTotal + 299
+                'items'      => $itemsTotal,
+                'delivery'   => self::DELIVERY_COST,
+                'total'      => $itemsTotal + self::DELIVERY_COST,
             ],
         ]);
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Создание заказа
      */
     public function store(Request $request): JsonResponse
     {
         Gate::authorize('store', Order::class);
 
         $request->validate([
-            'payment_method' => 'required|in:card,cash',
-            'items' => 'required|array',
-            'items.*.id' => 'required|integer|exists:cart_items,id' . (Auth::check() ? ',user_id,'.Auth::id() : ''),
-            'items.*.quantity' => 'required|integer|min:1',
-            'card_id' => 'nullable|required_if:payment_method,card|exists:bank_cards,id,user_id,'.Auth::id(),
-            'address_id' => 'required',
+            'payment_method'    => 'required|in:card,cash',
+            'items'             => 'required|array|min:1',
+            'items.*.id'        => 'required|integer|exists:cart_items,id' . (Auth::check() ? ',user_id,' . Auth::id() : ''),
+            'items.*.quantity'  => 'required|integer|min:1',
+            'card_id'           => 'nullable|required_if:payment_method,card|exists:bank_cards,id,user_id,' . Auth::id(),
+            'address_id'        => 'required|integer',
         ]);
 
         try {
             return DB::transaction(function () use ($request) {
-                $cartItems = Auth::check()
-                    ? Auth::user()->cartItems()->with('product')->whereIn('id', collect($request->items)->pluck('id'))->get()
-                    : collect(); // Для гостей нужно добавить свою логику
+                $user = Auth::user();
 
-                // Проверяем, что все товары найдены
-                if ($cartItems->count() !== count($request->items)) {
+                $cartItems = $user
+                    ->cartItems()
+                    ->with('product')
+                    ->whereIn('id', collect($request->input('items', []))->pluck('id'))
+                    ->get();
+
+                // Проверяем, что нашли все позиции
+                if ($cartItems->count() !== count($request->input('items', []))) {
                     throw new Exception('Some items not found in cart');
                 }
 
-                // Рассчитываем итоговую сумму
+                // Итог по товарам с учётом скидок
                 $itemsTotal = $cartItems->sum(function ($item) {
-                    return $item->quantity * $item->product->price;
+                    return $item->quantity * $this->discountedPrice($item->product);
                 });
 
-                // Получаем стоимость доставки
-                $deliveryCost = 299;
+                $deliveryCost = self::DELIVERY_COST;
 
-                $productIds = collect($request->items)->pluck('id');
-                $products = Product::findMany($productIds)->keyBy('id');
-
+                // Формируем адрес доставки из first_delivery_point товаров (если нужно)
+                // Исправлено: раньше брались product_ids из request (там id корзины), теперь из реальных cartItems
                 $deliveryPoints = [];
-                foreach ($request->items as $item) {
-                    $product = $products[$item['id']] ?? null;
+                foreach ($cartItems as $item) {
+                    $product = $item->product;
                     if ($product && $firstPoint = $product->first_delivery_point) {
                         $deliveryPoints[] = $this->formatDeliveryPoint($firstPoint);
                     }
                 }
+                $uniquePoints    = array_values(array_unique(array_filter($deliveryPoints)));
+                $shippingAddress = !empty($uniquePoints) ? implode('; ', $uniquePoints) : 'Адрес не указан';
 
-                $uniquePoints = array_unique($deliveryPoints);
-                $shippingAddress = !empty($uniquePoints)
-                    ? implode('; ', $uniquePoints)
-                    : 'Адрес не указан';
-
+                // Создаем заказ (владелец — клиент!)
                 $order = Order::create([
-                    'uuid' => Str::uuid(),
-                    'user_id' => Auth::id(),
-                    'total_amount' => $itemsTotal + $deliveryCost,
-                    'payment_method' => $request->payment_method,
-                    'card_id' => $request->card_id,
-                    'status' => 'pending',
-                    'shipping_address' => $shippingAddress,
-                    'user_address_id' => (int) $request->address_id,
+                    'uuid'            => (string)Str::uuid(),
+                    'user_id'     => $user->id,
+                    'total_amount'    => $itemsTotal + $deliveryCost,
+                    'payment_method'  => $request->input('payment_method'),
+                    'card_id'         => $request->input('card_id'),
+                    'status'          => 'pending',
+                    'shipping_address'=> $shippingAddress,
+                    'user_address_id' => (int)$request->input('address_id'),
                 ]);
 
-                // Добавляем товары в заказ
+                // Пакетная вставка позиций заказа
                 $orderItems = $cartItems->map(function ($item) use ($order) {
+                    $price = $this->discountedPrice($item->product);
+
                     return [
-                        'order_id' => $order->id,
+                        'order_id'   => $order->id,
                         'product_id' => $item->product_id,
-                        'quantity' => $item->quantity,
-                        'price' => $item->product->price,
+                        'quantity'   => $item->quantity,
+                        'price'      => $price,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
@@ -156,112 +174,80 @@ class OrderController extends Controller
 
                 OrderItem::insert($orderItems);
 
-                if (Auth::check()) {
-                    Auth::user()->cartItems()->whereIn('id', collect($request->items)->pluck('id'))->delete();
-                }
+                // Чистим корзину
+                $user->cartItems()->whereIn('id', collect($request->input('items'))->pluck('id'))->delete();
 
-                $paymentResult = $this->processPayment($order, $request->payment_method, $request->card_id ?? null);
+                // Оплата
+                $paymentResult = $this->processPayment($order, (string)$request->input('payment_method'), $request->input('card_id'));
+
+                // Событие
+                event(new OrderCreate($order));
 
                 return response()->json([
-                    'success' => true,
-                    'order' => $order->load(['items']),
+                    'success'      => true,
+                    'order'        => $order->load(['items.product']),
                     'payment_data' => $paymentResult,
-                ]);
+                ], 201);
             });
         } catch (Throwable $e) {
+            report($e);
+
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage(),
-            ]);
-        }
-    }
-
-    private function formatDeliveryPoint(array $point): string
-    {
-        $parts = [];
-        if (!empty($point['city'])) $parts[] = $point['city'];
-        if (!empty($point['name'])) $parts[] = $point['name'];
-        if (!empty($point['location'])) $parts[] = $point['location'];
-        return implode(', ', $parts);
-    }
-
-    private function processPayment(Order $order, string $paymentMethod, ?int $cardId): array
-    {
-        switch ($paymentMethod) {
-            case 'card':
-                $card = BankCard::find($cardId);
-                return [
-                    'type' => 'card',
-                    'amount' => $order->total_amount,
-                    'card_last_four' => $card->last_four,
-                    // Здесь должна быть интеграция с платежной системой
-                    // Возвращаем данные для редиректа или подтверждения
-                ];
-
-            case 'cash':
-                return [
-                    'type' => 'cash',
-                    'message' => 'Оплата при получении',
-                ];
-
-            default:
-                throw new InvalidArgumentException('Unsupported payment method');
+                'message' => app()->hasDebugModeEnabled() ? $e->getMessage() : 'Order create failed',
+            ], 422);
         }
     }
 
     /**
-     * Display the specified resource.
+     * Показывает заказ. Доступ: владелец (customer) или продавец, у которого есть позиции в заказе.
      */
     public function show(Order $order): JsonResponse
     {
-        abort_if($order->user_id !== auth()->id(), 403);
+        $this->ensureCanViewOrder($order);
 
-        return response()->json($order->load('user', 'items.product.files'));
+        return response()->json(
+            $order->load([
+                'user',
+                'items.product.files',
+            ])
+        );
     }
 
     /**
-     * Update the specified resource in storage.
+     * Обновление полей заказа (только для клиента — владельца).
      */
     public function update(Request $request, Order $order): JsonResponse
     {
         abort_if($order->user_id !== auth()->id(), 403);
 
         $validated = $request->validate([
-            'status' => 'sometimes|string|in:pending,assembling,completed,canceled',
-            'payment_method' => 'sometimes|string',
-            'shipping_address' => 'sometimes|string'
+            'status'          => 'sometimes|string|in:pending,assembling,completed,canceled',
+            'payment_method'  => 'sometimes|string|in:card,cash',
+            'shipping_address'=> 'sometimes|string',
         ]);
 
         $order->update($validated);
-        return response()->json($order);
+
+        return response()->json($order->fresh());
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Генерация QR (только владелец-клиент).
      */
-//    public function destroy(Order $order): JsonResponse
-//    {
-//        abort_if($order->user_id !== auth()->id(), 403);
-//
-//        $order->delete();
-//        return response()->json(null, 204);
-//    }
-
     public function generateQR(Order $order): JsonResponse
     {
         abort_if($order->user_id !== auth()->id(), 403);
 
-        $allowedStatuses = ['assembling', 'shipped'];
-        if (!in_array($order->status, $allowedStatuses)) {
+        if (!in_array($order->status, self::QR_ALLOWED_STATUSES, true)) {
             return response()->json([
-                'error' => 'QR-код можно сгенерировать только для заказов в статусах "assembling" или "shipped"'
+                'error' => 'QR-код можно сгенерировать только для заказов в статусах "assembling" или "shipped"',
             ], 400);
         }
 
         if (!$order->qr_token || now()->gt($order->expires_at)) {
-            $token = Str::random(32);
             $order->update([
-                'qr_token' => $token,
+                'qr_token'   => Str::random(32),
                 'expires_at' => now()->addHours(24),
             ]);
         }
@@ -272,18 +258,21 @@ class OrderController extends Controller
 
         $options = new QROptions([
             'outputType' => QRCode::OUTPUT_IMAGE_PNG,
-            'eccLevel' => QRCode::ECC_Q,
-            'scale' => 10,
+            'eccLevel'   => QRCode::ECC_Q,
+            'scale'      => 10,
         ]);
 
         $qrcode = (new QRCode($options))->render($url);
 
         return response()->json([
-            'qrcode' => $qrcode,
+            'qrcode'     => $qrcode,
             'expires_at' => $order->expires_at,
         ]);
     }
 
+    /**
+     * Обновление статуса заказа (курьер/продавец по правилам + клиент не обновляет тут).
+     */
     public function updateStatus(Order $order, Request $request): JsonResponse
     {
         Gate::authorize('updateStatus', $order);
@@ -293,52 +282,45 @@ class OrderController extends Controller
             return response()->json(['error' => 'Требуется авторизация'], 401);
         }
 
-        $user = Auth::user();
-        $isCourier = $user->isCourier();
-        $isSeller = $user->isSeller();
+        $user      = Auth::user();
+        $isCourier = method_exists($user, 'isCourier') && $user->isCourier();
+        $isSeller  = method_exists($user, 'isSeller') && $user->isSeller();
 
         $request->validate([
-            'status' => 'required|string|in:pending,assembling,shipped,completed,canceled'
+            'status'   => 'required|string|in:' . implode(',', self::ALLOWED_STATUSES_ALL),
+            'qr_token' => 'nullable|string',
         ]);
 
-        $oldStatus = $order->status;
-        $newStatus = $request->input('status');
-
-        $qrRequired = false;
-
-        if ($order->status === 'assembling' && $newStatus === 'shipped') {
-            $qrRequired = true;
-        } elseif ($order->status === 'shipped' && $newStatus === 'completed') {
-            $qrRequired = true;
-        }
+        $oldStatus   = $order->status;
+        $newStatus   = (string)$request->input('status');
+        $qrRequired  = ($oldStatus === 'assembling' && $newStatus === 'shipped')
+            || ($oldStatus === 'shipped' && $newStatus === 'completed');
 
         if ($qrRequired) {
             $request->validate(['qr_token' => 'required|string']);
 
-            $qrToken = $request->input('qr_token');
+            $qrToken = (string)$request->input('qr_token');
 
-            // Проверка токена
             if (!$order->qr_token || $order->qr_token !== $qrToken) {
                 Log::info('Invalid QR token', [
-                    'user_id' => $user->id,
-                    'order_id' => $order->id,
-                    'provided_token' => $qrToken,
-                    'expected_token' => $order->qr_token
+                    'user_id'       => $user->id,
+                    'order_id'      => $order->id,
+                    'provided_token'=> $qrToken,
+                    'expected_token'=> $order->qr_token,
                 ]);
                 return response()->json(['error' => 'Неверный QR-токен'], 401);
             }
 
-            // Проверка срока действия
             if (now()->gt($order->expires_at)) {
                 Log::info('Expired QR token', [
-                    'user_id' => $user->id,
-                    'order_id' => $order->id
+                    'user_id'  => $user->id,
+                    'order_id' => $order->id,
                 ]);
                 return response()->json(['error' => 'Срок действия QR-кода истек'], 400);
             }
         }
 
-        // Ограничение на частые запросы для курьеров
+        // RateLimit для курьера
         if ($isCourier) {
             $key = 'courier_status_update_' . $user->id;
             RateLimiter::hit($key);
@@ -349,74 +331,61 @@ class OrderController extends Controller
             }
         }
 
-        // Проверка прав и бизнес-логики
+        // Правила переходов для курьера
         if ($isCourier) {
-            // Проверка назначения заказа курьеру
             if ($order->courier_id !== $user->id) {
                 Log::info('Courier not assigned to order', [
-                    'courier_id' => $user->id,
-                    'order_courier_id' => $order->courier_id
+                    'courier_id'       => $user->id,
+                    'order_courier_id' => $order->courier_id,
                 ]);
                 return response()->json(['error' => 'Заказ не назначен этому курьеру'], 403);
             }
 
-            // Курьер может менять статус только на shipped и completed
             $allowedStatuses = ['shipped', 'completed'];
-            if (!in_array($newStatus, $allowedStatuses)) {
+            if (!in_array($newStatus, $allowedStatuses, true)) {
                 Log::info('Invalid status change by courier', [
-                    'courier_id' => $user->id,
+                    'courier_id'     => $user->id,
                     'current_status' => $order->status,
-                    'requested_status' => $newStatus
+                    'requested'      => $newStatus,
                 ]);
-                return response()->json([
-                    'error' => 'Курьер может менять статус только на "shipped" или "completed"'
-                ], 403);
+                return response()->json(['error' => 'Курьер может менять статус только на "shipped" или "completed"'], 403);
             }
 
-            // Проверка допустимости перехода статуса
             if ($order->status === 'assembling' && $newStatus !== 'shipped') {
-                Log::info('Invalid status transition by courier', [
-                    'courier_id' => $user->id,
-                    'from_status' => $order->status,
-                    'to_status' => $newStatus
-                ]);
-                return response()->json([
-                    'error' => 'Недопустимый переход статуса: можно менять только на "shipped"'
-                ], 403);
+                return response()->json(['error' => 'Недопустимый переход: можно только "shipped"'], 403);
             }
-
             if ($order->status === 'shipped' && $newStatus !== 'completed') {
-                Log::info('Invalid status transition by courier', [
-                    'courier_id' => $user->id,
-                    'from_status' => $order->status,
-                    'to_status' => $newStatus
-                ]);
-                return response()->json([
-                    'error' => 'Недопустимый переход статуса: можно менять только на "completed"'
-                ], 403);
+                return response()->json(['error' => 'Недопустимый переход: можно только "completed"'], 403);
             }
         }
 
-        // Проверки для продавца
+        // Правила для продавца
         if ($isSeller) {
+            // Продавец может менять только на assembling/canceled, и только если в заказе есть его позиции
+            $hasSellerPositions = $order->items()->whereHas('product', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })->exists();
+
+            if (!$hasSellerPositions) {
+                return response()->json(['error' => 'Нет прав на изменение этого заказа'], 403);
+            }
+
             $allowedStatuses = ['assembling', 'canceled'];
-            if (!in_array($newStatus, $allowedStatuses)) {
+            if (!in_array($newStatus, $allowedStatuses, true)) {
                 Log::info('Invalid status change by seller', [
-                    'seller_id' => $user->id,
+                    'seller_id'      => $user->id,
                     'current_status' => $order->status,
-                    'requested_status' => $newStatus
+                    'requested'      => $newStatus,
                 ]);
-                return response()->json([
-                    'error' => 'Продавец может менять статус только на "assembling" или "canceled"'
-                ], 403);
+                return response()->json(['error' => 'Продавец может менять статус только на "assembling" или "canceled"'], 403);
             }
         }
 
+        // Обновление
         $order->status = $newStatus;
 
-        // Инвалидация QR-токена при использовании
         if ($qrRequired) {
-            $order->qr_token = null;
+            $order->qr_token   = null;
             $order->expires_at = null;
         }
 
@@ -425,13 +394,96 @@ class OrderController extends Controller
         event(new OrderStatusUpdated($order, $oldStatus, $newStatus));
 
         Log::info('Order status updated', [
-            'order_id' => $order->id,
-            'from_status' => $order->getOriginal('status'),
-            'to_status' => $newStatus,
-            'user_id' => $user->id,
-            'user_type' => $isCourier ? 'courier' : ($isSeller ? 'seller' : 'customer')
+            'order_id'  => $order->id,
+            'from'      => $oldStatus,
+            'to'        => $newStatus,
+            'by_user'   => $user->id,
+            'user_type' => $isCourier ? 'courier' : ($isSeller ? 'seller' : 'customer'),
         ]);
 
-        return response()->json($order);
+        return response()->json($order->fresh());
+    }
+
+    /* ===================== ВСПОМОГАТЕЛЬНОЕ ===================== */
+
+    /** Единое место расчёта скидочной цены товара */
+    private function discountedPrice(Product $product): float
+    {
+        $price = (float)$product->price;
+
+        if ($product->discountType && $product->discountValue) {
+            $type  = $product->discountType instanceof DiscountType
+                ? $product->discountType->value
+                : $product->discountType;
+
+            $value = (float)$product->discountValue;
+
+            if ($type === DiscountType::PERCENT->value || $type === 'percent') {
+                $price -= $price * ($value / 100);
+            } elseif ($type === DiscountType::FIXED_SUM->value || $type === 'fixedSum' || $type === 'fixed_sum') {
+                $price -= $value;
+            }
+        }
+
+        return max(0.0, round($price, 2));
+    }
+
+    private function formatDeliveryPoint(array $point): string
+    {
+        $parts = [];
+        if (!empty($point['city']))    { $parts[] = $point['city']; }
+        if (!empty($point['name']))    { $parts[] = $point['name']; }
+        if (!empty($point['location'])){ $parts[] = $point['location']; }
+
+        return implode(', ', $parts);
+    }
+
+    private function processPayment(Order $order, string $paymentMethod, ?int $cardId): array
+    {
+        switch ($paymentMethod) {
+            case 'card':
+                /** @var BankCard|null $card */
+                $card = $cardId ? BankCard::find($cardId) : null;
+
+                if (!$card || $card->user_id !== Auth::id()) {
+                    throw new InvalidArgumentException('Invalid card');
+                }
+
+                return [
+                    'type'           => 'card',
+                    'amount'         => (float)$order->total_amount,
+                    'card_last_four' => $card->last_four,
+                    // TODO: интеграция с платёжным провайдером
+                ];
+
+            case 'cash':
+                return [
+                    'type'    => 'cash',
+                    'message' => 'Оплата при получении',
+                ];
+
+            default:
+                throw new InvalidArgumentException('Unsupported payment method');
+        }
+    }
+
+    /**
+     * Авторизация просмотра: владелец (customer) или продавец, имеющий позиции в заказе.
+     */
+    private function ensureCanViewOrder(Order $order): void
+    {
+        $userId = (int)auth()->id();
+
+        if ($order->user_id === $userId) {
+            return;
+        }
+
+        $isSellerOfThisOrder = $order->items()
+            ->whereHas('product', static function ($q) use ($userId) {
+                $q->where('user_id', $userId);
+            })
+            ->exists();
+
+        abort_if(!$isSellerOfThisOrder, 403);
     }
 }

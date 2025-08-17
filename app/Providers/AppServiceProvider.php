@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Events\OrderCreate;
 use App\Events\OrderStatusUpdated;
 use App\Helpers\MediaUploader;
+use App\Listeners\SendOrderCreateNotification;
 use App\Listeners\SendOrderStatusNotification;
 use App\Services\ClientProfileService;
 use App\Services\Contracts\ProfileServiceInterface;
@@ -36,7 +38,11 @@ class AppServiceProvider extends ServiceProvider
     {
         Event::listen(
             OrderStatusUpdated::class,
-            SendOrderStatusNotification::class,
+            SendOrderStatusNotification::class
+        );
+        Event::listen(
+            OrderCreate::class,
+            SendOrderCreateNotification::class
         );
     }
 }

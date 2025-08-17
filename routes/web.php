@@ -94,7 +94,7 @@ Route::middleware(['auth', 'role:client'])->group(static function (): void {
     Route::get('/purchases', [PurchaseController::class, 'index']);
 });
 
-Route::middleware('auth:sanctum')->group(static function (): void {
+Route::middleware('auth')->group(static function (): void {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);

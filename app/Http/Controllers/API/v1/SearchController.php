@@ -116,7 +116,7 @@ class SearchController extends Controller
 
         return $query->select('*')
             ->selectRaw(
-                "MATCH({$columns}) AGAINST(? IN BOOLEAN MODE) as relevance",
+                "CAST(COALESCE(MATCH({$columns}) AGAINST(? IN BOOLEAN MODE), 0) AS DECIMAL(10,6)) as relevance",
                 [$searchTerm]
             )
             ->whereRaw(
@@ -127,6 +127,7 @@ class SearchController extends Controller
             ->orderByDesc('views_count')
             ->paginate($perPage);
     }
+
 
     protected function likeSearch($query, array $keywords, array $columns, int $perPage)
     {
