@@ -29,8 +29,7 @@ class OrderPolicy
             return in_array(request()->status, ['shipped', 'completed']);
         }
 
-        // Клиент (владелец заказа)
-        if ($order->user_id === $user->id) {
+        if ($user->isClient() && $order->user_id === $user->id) {
             return in_array(request()->status, ['canceled']);
         }
 
