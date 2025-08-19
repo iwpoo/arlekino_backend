@@ -56,7 +56,8 @@ Route::middleware('auth')->group(static function (): void {
 Route::get('/search', [SearchController::class, 'search'])->middleware(['auth']);
 
 Route::middleware(['auth', 'role:seller,client'])->group(static function (): void {
-    Route::resource('orders', OrderController::class)->only(['index', 'show', 'store', 'update']);
+    Route::resource('orders', OrderController::class)->only(['index', 'store', 'update']);
+    Route::get('/orders/{id}', [OrderController::class, 'show'])->name('orders.show');
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus'])->name('order.status.update');
     Route::get('/orders/{order}/qr', [OrderController::class, 'generateQR'])->name('order.qr.generate');
     Route::post('/orders/precalculate', [OrderController::class, 'precalculate'])->name('order.precalculate');

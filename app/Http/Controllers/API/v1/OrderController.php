@@ -242,16 +242,17 @@ class OrderController extends Controller
         }
     }
 
-    public function show(Order $order): JsonResponse
+    public function show(int $id): JsonResponse
     {
-        $this->ensureCanViewOrder($order);
+        $user = auth()->user();
 
-        $order->load([
-            'user',
-            'items.product.files',
-            'sellerOrders.seller',
-            'sellerOrders.items.product.files',
-        ]);
+        if ($user->isClient()) {
+            $order = Order::with(['user', 'items.product.files'])->findOrFail($id);
+        } elseif ($user->isSeller()) {
+            $order = SellerOrder::with(['order', 'items.product.files'])->findOrFail($id);
+        } else {
+            abort(403, 'Unauthorized');
+        }
 
         return response()->json($order);
     }
@@ -529,25 +530,5 @@ class OrderController extends Controller
             default:
                 throw new InvalidArgumentException('Unsupported payment method');
         }
-    }
-
-    /**
-     * Авторизация просмотра: владелец (customer) или продавец, имеющий позиции в заказе.
-     */
-    private function ensureCanViewOrder(Order $order): void
-    {
-        $userId = (int)auth()->id();
-
-        if ($order->user_id === $userId) {
-            return;
-        }
-
-        $isSellerOfThisOrder = $order->items()
-            ->whereHas('product', static function ($q) use ($userId) {
-                $q->where('user_id', $userId);
-            })
-            ->exists();
-
-        abort_if(!$isSellerOfThisOrder, 403);
     }
 }
