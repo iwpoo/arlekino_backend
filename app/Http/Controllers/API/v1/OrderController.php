@@ -274,8 +274,6 @@ class OrderController extends Controller
 
     public function generateQR(Order $order): JsonResponse
     {
-        abort_if($order->user_id !== auth()->id(), 403);
-
         if (!in_array($order->status, self::QR_ALLOWED_STATUSES, true)) {
             return response()->json([
                 'error' => 'QR-код можно сгенерировать только для заказов в статусах "assembling" или "shipped"',
@@ -379,7 +377,7 @@ class OrderController extends Controller
             $sellerOrder->status = $newStatus;
             $sellerOrder->save();
 
-            event(new SellerOrderStatusUpdated($sellerOrder, $oldStatus, $newStatus));
+            event(new SellerOrderStatusUpdated(auth()->user(), $sellerOrder, $oldStatus, $newStatus));
             Log::info('SellerOrder status updated', ['seller_order_id' => $sellerOrder->id, 'from' => $oldStatus, 'to' => $newStatus, 'by' => $user->id]);
 
             // После изменения — агрегируем статус глобального заказа
@@ -436,7 +434,7 @@ class OrderController extends Controller
         }
         $order->save();
 
-        event(new OrderStatusUpdated($order, $oldOrderStatus, $newStatus));
+        event(new OrderStatusUpdated(auth()->user(), $order, $oldOrderStatus, $newStatus));
 
         return response()->json($order->fresh());
     }
@@ -466,7 +464,7 @@ class OrderController extends Controller
                 $old = $order->status;
                 $order->status = $new;
                 $order->save();
-                event(new OrderStatusUpdated($order, $old, $new));
+                event(new OrderStatusUpdated(auth()->user(), $order, $old, $new));
             }
         }
     }

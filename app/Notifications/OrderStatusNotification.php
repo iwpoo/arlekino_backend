@@ -15,6 +15,7 @@ class OrderStatusNotification extends Notification implements ShouldQueue
      * Create a new notification instance.
      */
     public function __construct(
+        public $user,
         public $order,
         public $status,
         public $forSeller = false
@@ -42,6 +43,7 @@ class OrderStatusNotification extends Notification implements ShouldQueue
             'link' => $this->forSeller
                 ? route('seller.orders.show', $this->order->id)
                 : route('orders.show', $this->order->id),
+            'user' => $this->user
         ];
     }
 

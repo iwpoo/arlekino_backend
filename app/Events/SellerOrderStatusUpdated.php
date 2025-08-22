@@ -3,6 +3,7 @@
 namespace App\Events;
 
 use App\Models\SellerOrder;
+use App\Models\User;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
@@ -19,6 +20,7 @@ class SellerOrderStatusUpdated
      * Create a new event instance.
      */
     public function __construct(
+        public User $user,
         public SellerOrder $sellerOrder,
         public string $oldStatus,
         public string $newStatus

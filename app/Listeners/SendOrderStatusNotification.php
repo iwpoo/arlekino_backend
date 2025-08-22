@@ -22,7 +22,7 @@ class SendOrderStatusNotification
     public function handle(object $event): void
     {
         $event->order->user->notify(
-            new OrderStatusNotification($event->order, $event->newStatus)
+            new OrderStatusNotification($event->user, $event->order, $event->newStatus)
         );
     }
 }
