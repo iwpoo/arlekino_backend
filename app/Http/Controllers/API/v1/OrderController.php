@@ -224,7 +224,7 @@ class OrderController extends Controller
                 $paymentResult = $this->processPayment($order, (string)$request->input('payment_method'), $request->input('card_id'));
 
                 // Событие
-                event(new OrderCreate($order));
+                event(new OrderCreate(auth()->user(), $order));
 
                 return response()->json([
                     'success'      => true,

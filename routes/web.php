@@ -3,7 +3,9 @@
 use App\Http\Controllers\API\v1\AuthController;
 use App\Http\Controllers\API\v1\BankCardController;
 use App\Http\Controllers\API\v1\CartController;
+use App\Http\Controllers\API\v1\ChatController;
 use App\Http\Controllers\API\v1\FavoriteProductController;
+use App\Http\Controllers\API\v1\MessageController;
 use App\Http\Controllers\API\v1\NotificationController;
 use App\Http\Controllers\API\v1\OrderController;
 use App\Http\Controllers\API\v1\Post\CommentController;
@@ -17,6 +19,7 @@ use App\Http\Controllers\API\v1\SessionController;
 use App\Http\Controllers\API\v1\StoryController;
 use App\Http\Controllers\API\v1\UserAddressController;
 use App\Http\Controllers\API\v1\UserController;
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(static function (): void {
@@ -99,4 +102,27 @@ Route::middleware('auth')->group(static function (): void {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+});
+
+Route::middleware('auth')->group(static function (): void {
+    Route::resource('chats', ChatController::class)->except(['update']);
+
+    // Message routes
+    Route::get('chats/{chat}/messages', [MessageController::class, 'index']);
+    Route::post('chats/{chat}/messages', [MessageController::class, 'store']);
+    Route::put('messages/{message}', [MessageController::class, 'update']);
+    Route::delete('messages/{message}', [MessageController::class, 'destroy']);
+
+    // User search for starting new chats
+    Route::get('/users', function () {
+        $users = User::where('id', '!=', auth()->id())
+            ->when(request('search'), function ($query, $search) {
+                $query->where('name', 'like', "%$search%")
+                    ->orWhere('email', 'like', "%$search%");
+            })
+            ->limit(10)
+            ->get();
+
+        return response()->json($users);
+    });
 });

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Events\MessageSent;
 use App\Events\OrderCreate;
 use App\Events\OrderStatusUpdated;
 use App\Helpers\MediaUploader;
@@ -44,5 +45,7 @@ class AppServiceProvider extends ServiceProvider
             OrderCreate::class,
             SendOrderCreateNotification::class
         );
+        Event::listen(MessageSent::class, function (MessageSent $event) {
+        });
     }
 }

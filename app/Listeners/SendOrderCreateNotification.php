@@ -27,7 +27,7 @@ class SendOrderCreateNotification
             ->unique('id');
 
         foreach ($sellers as $seller) {
-            $seller->notify(new OrderCreateNotification($order));
+            $seller->notify(new OrderCreateNotification($event->user, $order));
         }
     }
 }

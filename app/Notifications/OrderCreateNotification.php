@@ -15,6 +15,7 @@ class OrderCreateNotification extends Notification implements ShouldQueue
      * Create a new notification instance.
      */
     public function __construct(
+        public $user,
         public $order
     ) {}
 
@@ -34,6 +35,7 @@ class OrderCreateNotification extends Notification implements ShouldQueue
     public function toDatabase($notifiable): array
     {
         return [
+            'user' => $this->user,
             'type' => 'order',
             'message' => "Поступил новый заказ!",
             'link' => route('orders.show', $this->order->id),
