@@ -24,7 +24,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ProfileServiceInterface::class, function ($app) {
             $user = $app->make('request')->route('user');
 
-            if ($user->isClient()) {
+            if ($user && $user->isClient()) {
                 return new ClientProfileService($app->make(MediaUploader::class));
             } else {
                 return new SellerProfileService($app->make(MediaUploader::class));

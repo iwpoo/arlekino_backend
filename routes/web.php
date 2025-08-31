@@ -47,8 +47,8 @@ Route::get('categories/{categoryId}/questions', [CategoryController::class, 'get
 Route::resource('stories', StoryController::class)->only(['index', 'store', 'show', 'destroy'])->middleware(['auth']);
 Route::post('stories/{story}/view', [StoryController::class, 'markAsViewed'])->middleware(['auth']);
 
-Route::resource('users', UserController::class)->only(['show', 'update', 'destroy'])->middleware(['auth']);
 Route::get('users/with-story', [UserController::class, 'getUsersWithStories'])->middleware(['auth']);
+Route::resource('users', UserController::class)->only(['show', 'update', 'destroy'])->middleware(['auth']);
 Route::get('users/{user}/stories', [UserController::class, 'userStories'])->middleware(['auth']);
 
 Route::middleware('auth')->group(static function (): void {
