@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->enum('gender', ['male', 'female'])->nullable()->after('email');
             $table->string('currency', 3)->default('RUB')->after('gender');
-            $table->json('authorized_devices')->nullable()->after('payment_methods');
+            $table->json('authorized_devices')->nullable()->after('default_card_id');
         });
     }
 
@@ -26,7 +26,6 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->dropColumn('gender');
             $table->dropColumn('currency');
-            $table->dropColumn('payment_method');
             $table->dropColumn('authorized_devices');
         });
     }
