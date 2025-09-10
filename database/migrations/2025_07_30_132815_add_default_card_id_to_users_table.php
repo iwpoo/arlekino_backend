@@ -17,6 +17,7 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('bank_cards')
                 ->onDelete('SET NULL');
+            $table->json('authorized_devices')->nullable()->after('default_card_id');
         });
     }
 
