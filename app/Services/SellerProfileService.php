@@ -26,28 +26,29 @@ class SellerProfileService implements ProfileServiceInterface
      */
     public function update(array $data): array
     {
+        \Log::debug('Profile update data:', $data);
         DB::beginTransaction();
 
         try {
-//            if (isset($data['avatar'])) {
-//                $this->user->avatar_path = $this->uploader->upload(
-//                    $data['avatar'],
-//                    'public',
-//                    'avatars',
-//                    $this->user->avatar_path
-//                );
-//                unset($data['avatar']);
-//            }
-//
-//            if (isset($data['shop_cover'])) {
-//                $this->user->shop_cover_path = $this->uploader->upload(
-//                    $data['shop_cover'],
-//                    'public',
-//                    'shop_covers',
-//                    $this->user->shop_cover_path
-//                );
-//                unset($data['shop_cover']);
-//            }
+            if (isset($data['avatar'])) {
+                $this->user->avatar_path = $this->uploader->upload(
+                    $data['avatar'],
+                    'public',
+                    'avatars',
+                    $this->user->avatar_path
+                );
+                unset($data['avatar']);
+            }
+
+            if (isset($data['shop_cover'])) {
+                $this->user->shop_cover_path = $this->uploader->upload(
+                    $data['shop_cover'],
+                    'public',
+                    'shop_covers',
+                    $this->user->shop_cover_path
+                );
+                unset($data['shop_cover']);
+            }
 
             if (isset($data['warehouse_addresses'])) {
                 $this->updateWarehouseAddresses($data['warehouse_addresses']);

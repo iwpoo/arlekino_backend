@@ -33,7 +33,7 @@ class ProfileUpdateRequest extends FormRequest
                 'payment_methods' => ['nullable', 'array'],
                 'payment_methods.*' => ['in:card,paypal,apple_pay,gpay'],
                 'card_number' => ['nullable', 'string', 'max:16'],
-//                'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
+                'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
             ];
         } else {
             return [
@@ -43,8 +43,8 @@ class ProfileUpdateRequest extends FormRequest
                 'phone' => ['nullable', 'string', 'max:20'],
                 'email' => ['nullable', 'email', 'unique:users,email,'.$user->id],
                 'website' => ['nullable', 'url'],
-//                'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
-//                'shop_cover' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:5120'],
+                'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
+                'shop_cover' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:5120'],
                 'warehouse_addresses' => ['nullable', 'array'],
                 'warehouse_addresses.*.address' => ['required_with:warehouse_addresses', 'string'],
                 'warehouse_addresses.*.is_default' => ['boolean'],

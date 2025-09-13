@@ -28,10 +28,10 @@ class ClientProfileService implements ProfileServiceInterface
         DB::beginTransaction();
 
         try {
-//            if (isset($data['avatar'])) {
-//                $this->user->avatar_path = $this->uploader->upload($data['avatar'], 'public', 'avatars', $this->user->avatar_path);
-//                unset($data['avatar']);
-//            }
+            if (isset($data['avatar'])) {
+                $this->user->avatar_path = $this->uploader->upload($data['avatar'], 'public', 'avatars', $this->user->avatar_path);
+                unset($data['avatar']);
+            }
 
             $this->user->update($data);
 
