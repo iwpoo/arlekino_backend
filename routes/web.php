@@ -1,5 +1,6 @@
 <?php
 
+use App\Events\MessageSent;
 use App\Http\Controllers\API\v1\AuthController;
 use App\Http\Controllers\API\v1\BankCardController;
 use App\Http\Controllers\API\v1\CartController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\API\v1\SessionController;
 use App\Http\Controllers\API\v1\StoryController;
 use App\Http\Controllers\API\v1\UserAddressController;
 use App\Http\Controllers\API\v1\UserController;
+use App\Models\ChatMessage;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
@@ -105,24 +107,31 @@ Route::middleware('auth')->group(static function (): void {
 });
 
 Route::middleware('auth')->group(static function (): void {
-    Route::resource('chats', ChatController::class)->except(['update']);
 
-    // Message routes
-    Route::get('chats/{chat}/messages', [MessageController::class, 'index']);
-    Route::post('chats/{chat}/messages', [MessageController::class, 'store']);
-    Route::put('messages/{message}', [MessageController::class, 'update']);
-    Route::delete('messages/{message}', [MessageController::class, 'destroy']);
-
-    // User search for starting new chats
-    Route::get('/users', function () {
-        $users = User::where('id', '!=', auth()->id())
-            ->when(request('search'), function ($query, $search) {
-                $query->where('name', 'like', "%$search%")
-                    ->orWhere('email', 'like', "%$search%");
+    Route::get('/messages/{friend}', function (User $friend) {
+        return ChatMessage::query()
+            ->where(function ($query) use ($friend) {
+                $query->where('sender_id', auth()->id())
+                    ->where('receiver_id', $friend->id);
             })
-            ->limit(10)
+            ->orWhere(function ($query) use ($friend) {
+                $query->where('sender_id', $friend->id)
+                    ->where('receiver_id', auth()->id());
+            })
+            ->with(['sender', 'receiver'])
+            ->orderBy('id', 'asc')
             ->get();
+    })->middleware(['auth']);
 
-        return response()->json($users);
+    Route::post('/messages/{friend}', function (User $friend) {
+        $message = ChatMessage::create([
+            'sender_id' => auth()->id(),
+            'receiver_id' => $friend->id,
+            'text' => request()->input('message')
+        ]);
+
+        broadcast(new MessageSent($message));
+
+        return  $message;
     });
 });

@@ -23,6 +23,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('products', function (Blueprint $table) {
+            $table->dropForeign(['category_id']);
+
             $table->dropIndex(['category_id', 'inStock', 'price', 'created_at']);
         });
     }
