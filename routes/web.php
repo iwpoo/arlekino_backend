@@ -121,7 +121,7 @@ Route::middleware('auth')->group(static function (): void {
             ->with(['sender', 'receiver'])
             ->orderBy('id', 'asc')
             ->get();
-    })->middleware(['auth']);
+    });
 
     Route::post('/messages/{friend}', function (User $friend) {
         $message = ChatMessage::create([
