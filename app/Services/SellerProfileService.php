@@ -3,92 +3,75 @@
 namespace App\Services;
 
 use App\Helpers\MediaUploader;
+use App\Jobs\ProcessProfileImageJob;
 use App\Models\User;
 use App\Services\Contracts\ProfileServiceInterface;
 use DB;
-use Exception;
-use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableAlias;
 use Illuminate\Support\Facades\Auth;
-use InvalidArgumentException;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class SellerProfileService implements ProfileServiceInterface
 {
-    protected AuthenticatableAlias|null|User $user;
+    public function __construct(protected MediaUploader $uploader) {}
 
-    public function __construct(protected MediaUploader $uploader)
-    {
-        $this->user = Auth::user()->load(['warehouseAddresses']);
-    }
-
-    /**
-     * @throws Throwable
-     */
     public function update(array $data): array
     {
-        \Log::debug('Profile update data:', $data);
-        DB::beginTransaction();
+        $user = Auth::user();
 
         try {
-            if (isset($data['avatar'])) {
-                $this->user->avatar_path = $this->uploader->upload(
-                    $data['avatar'],
-                    'public',
-                    'avatars',
-                    $this->user->avatar_path
-                );
-                unset($data['avatar']);
-            }
+            return DB::transaction(function () use ($user, $data) {
+                if (isset($data['avatar'])) {
+                    $tempPath = $data['avatar']->store('temp/avatars', 'public');
+                    ProcessProfileImageJob::dispatch($user->id, $tempPath, 'avatar');
+                }
 
-            if (isset($data['shop_cover'])) {
-                $this->user->shop_cover_path = $this->uploader->upload(
-                    $data['shop_cover'],
-                    'public',
-                    'shop_covers',
-                    $this->user->shop_cover_path
-                );
-                unset($data['shop_cover']);
-            }
+                if (isset($data['shop_cover'])) {
+                    $tempPath = $data['shop_cover']->store('temp/covers', 'public');
+                    ProcessProfileImageJob::dispatch($user->id, $tempPath, 'shop_cover');
+                }
 
-            if (isset($data['warehouse_addresses'])) {
-                $this->updateWarehouseAddresses($data['warehouse_addresses']);
-                unset($data['warehouse_addresses']);
-            }
+                if (isset($data['warehouse_addresses'])) {
+                    $this->syncWarehouseAddresses($user, $data['warehouse_addresses']);
+                }
 
-            $this->user->update($data);
+                $fillableData = array_diff_key($data, array_flip(['avatar', 'shop_cover', 'warehouse_addresses']));
+                $user->update($fillableData);
 
-            DB::commit();
+                Cache::forget("user_profile_$user->id");
 
-            return ['user' => $this->user->fresh()];
-        } catch (Exception $e) {
-            DB::rollBack();
-            throw $e;
+                return ['user' => $user->fresh()];
+            });
+        } catch (Throwable $e) {
+            Log::error("Profile update failed for User [$user->id]: " . $e->getMessage(), [
+                'data_keys' => array_keys($data)
+            ]);
+
+            throw new \RuntimeException("Не удалось обновить профиль. Попробуйте позже.");
         }
     }
 
-    protected function updateWarehouseAddresses(array $addresses): void
+    protected function syncWarehouseAddresses(User $user, array $addresses): void
     {
-        foreach ($addresses as $address) {
-            if (!isset($address['address'])) {
-                throw new InvalidArgumentException("The required field 'address' is missing");
-            }
-        }
+        $keepIds = collect($addresses)->pluck('id')->filter()->toArray();
+        $user->warehouseAddresses()->whereNotIn('id', $keepIds)->delete();
 
-        $newIds = array_filter(array_column($addresses, 'id'), fn($id) => $id !== null);
+        if (empty($addresses)) return;
 
-        $this->user->warehouseAddresses()
-            ->whereNotIn('id', $newIds)
-            ->delete();
+        $upsertData = array_map(fn($addr) => [
+            'id' => $addr['id'] ?? null,
+            'address' => $addr['address'],
+            'is_default' => $addr['is_default'] ?? false,
+            'user_id' => $user->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ], $addresses);
 
-        $this->user->warehouseAddresses()->upsert(
-            array_map(fn($addr) => [
-                'id' => $addr['id'] ?? null,
-                'address' => $addr['address'],
-                'is_default' => $addr['is_default'] ?? false,
-                'user_id' => $this->user->id
-            ], $addresses),
+        $user->warehouseAddresses()->upsert(
+            $upsertData,
             ['id'],
-            ['address', 'is_default']
+            ['address', 'is_default', 'updated_at']
         );
     }
 }

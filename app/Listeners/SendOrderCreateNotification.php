@@ -3,20 +3,15 @@
 namespace App\Listeners;
 
 use App\Notifications\OrderCreateNotification;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Queue\InteractsWithQueue;
 
-class SendOrderCreateNotification
+class SendOrderCreateNotification implements ShouldQueue
 {
-    /**
-     * Create the event listener.
-     */
-    public function __construct()
-    {
-        //
-    }
+    use InteractsWithQueue;
 
-    /**
-     * Handle the event.
-     */
+    public string $queue = 'high';
+
     public function handle(object $event): void
     {
         $order = $event->order->loadMissing('items.product.user');

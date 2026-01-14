@@ -16,6 +16,7 @@ class Story extends Model
         'user_id',
         'file_path',
         'file_type',
+        'is_ready'
     ];
 
     protected $appends = ['file_url'];

@@ -19,6 +19,8 @@ return new class extends Migration
                 ->constrained('categories')
                 ->onDelete('cascade');
             $table->timestamps();
+            
+            $table->index('parent_id');
         });
     }
 

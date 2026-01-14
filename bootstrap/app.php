@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Middleware\CacheUserAuth;
 use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\UpdateUserOnlineStatus;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -14,7 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->alias(['role' => CheckRole::class]);
+        $middleware->alias([
+            'role' => CheckRole::class,
+            'cache-user-auth' => CacheUserAuth::class,
+            'user-online' => UpdateUserOnlineStatus::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

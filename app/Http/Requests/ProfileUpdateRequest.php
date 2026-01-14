@@ -43,6 +43,7 @@ class ProfileUpdateRequest extends FormRequest
                 'phone' => ['nullable', 'string', 'max:20'],
                 'email' => ['nullable', 'email', 'unique:users,email,'.$user->id],
                 'website' => ['nullable', 'url'],
+                'currency' => ['nullable', 'string', 'size:3'],
                 'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
                 'shop_cover' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:5120'],
                 'warehouse_addresses' => ['nullable', 'array'],

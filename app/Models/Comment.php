@@ -38,4 +38,9 @@ class Comment extends Model
     {
         return $this->belongsTo(Comment::class, 'parent_id');
     }
+
+    public function allChildren(): HasMany
+    {
+        return $this->children()->with(['allChildren', 'user']);
+    }
 }

@@ -35,4 +35,41 @@ return [
         ],
     ],
 
+    'twilio' => [
+        'sid' => env('TWILIO_ACCOUNT_SID'),
+        'token' => env('TWILIO_AUTH_TOKEN'),
+        'service_sid' => env('TWILIO_SERVICE_SID'),
+        'verification_send_attempts_limit' => env('TWILIO_SEND_ATTEMPTS_LIMIT', 1),
+        'verification_verify_attempts_limit' => env('TWILIO_VERIFY_ATTEMPTS_LIMIT', 5),
+        'verification_verify_timeout_seconds' => env('TWILIO_VERIFY_TIMEOUT_SECONDS', 300),
+    ],
+
+    'elasticsearch' => [
+        'host' => env('ELASTICSEARCH_HOST', 'http://localhost:9200'),
+        'index' => env('ELASTICSEARCH_INDEX', 'search_index'),
+    ],
+
+    'auth' => [
+        'login_attempts_limit' => env('AUTH_LOGIN_ATTEMPTS_LIMIT', 5),
+        'login_timeout_seconds' => env('AUTH_LOGIN_TIMEOUT_SECONDS', 600), // 10 minutes
+        'phone_verification_attempts_limit' => env('AUTH_PHONE_VERIFICATION_ATTEMPTS_LIMIT', 3),
+        'phone_verification_timeout_seconds' => env('AUTH_PHONE_VERIFICATION_TIMEOUT_SECONDS', 3600), // 1 hour
+    ],
+
+    'order' => [
+        'delivery_cost' => env('DELIVERY_COST', 5.0),
+    ],
+
+    'price_calculator' => [
+        'delivery_cost' => env('DELIVERY_COST', 5.0),
+    ],
+
+    'returns_processing' => [
+        'logistics_free_reasons' => env('RETURNS_LOGISTICS_FREE_REASONS', 'does_not_match_description,defective_damaged'),
+        'logistics_cost' => env('RETURNS_LOGISTICS_COST', 150.0),
+        'return_period_days' => env('RETURNS_RETURN_PERIOD_DAYS', 14),
+        'qr_code_expiry_hours' => env('RETURNS_QR_CODE_EXPIRY_HOURS', 24),
+        'qr_code_length' => env('RETURNS_QR_CODE_LENGTH', 16),
+    ],
+
 ];

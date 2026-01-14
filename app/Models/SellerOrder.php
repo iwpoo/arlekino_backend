@@ -13,6 +13,7 @@ class SellerOrder extends Model
         'seller_id',
         'total_amount',
         'status',
+        'confirmed_at',
     ];
 
     public function order(): BelongsTo

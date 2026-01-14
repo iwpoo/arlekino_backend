@@ -25,6 +25,8 @@ return new class extends Migration
             $table->boolean('is_default')->default(false);
             $table->string('full_address');
             $table->timestamps();
+            
+            $table->index('user_id');
         });
     }
 

@@ -13,13 +13,13 @@ return new class extends Migration
     {
         Schema::create('seller_orders', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('order_id');
-            $table->unsignedBigInteger('seller_id');
+            $table->foreignId('order_id')->constrained('orders')->cascadeOnDelete();
+            $table->foreignId('seller_id')->constrained('users')->cascadeOnDelete();
             $table->decimal('total_amount', 12, 2)->default(0);
             $table->enum('status', ['pending', 'assembling', 'shipped', 'completed', 'canceled'])->default('pending');
             $table->timestamps();
 
-            $table->foreign('order_id')->references('id')->on('orders')->cascadeOnDelete();
+            $table->index(['seller_id', 'status', 'created_at'], 'seller_stats_index');
             $table->index('seller_id');
         });
     }

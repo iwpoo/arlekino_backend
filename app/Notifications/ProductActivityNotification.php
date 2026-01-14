@@ -4,27 +4,22 @@ namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class ProductActivityNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    /**
-     * Create a new notification instance.
-     */
+    public $queue = 'notifications';
+
+    public bool $deleteWhenMissingModels = true;
+
     public function __construct(
         public $type,
         public $product,
         public $actor = null
     ) {}
 
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
     public function via(object $notifiable): array
     {
         return ['database'];
@@ -44,7 +39,7 @@ class ProductActivityNotification extends Notification implements ShouldQueue
             'type' => 'product',
             'message' => $messages[$this->type] ?? 'Новое уведомление',
             'icon' => 'mdi-shopping',
-            'link' => route('products.show', $this->product->id),
+            'link' => '/product/' . $this->product->id,
             'actor' => $this->actor?->name,
             'product_id' => $this->product->id,
             'product_image' => $this->product->main_image

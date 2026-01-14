@@ -15,6 +15,8 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Laravel\Sanctum\Sanctum;
+use App\Enums\UserRole;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -33,6 +35,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'phone',
         'avatar_path',
         'email',
+        'email_verification_code',
+        'email_verified_at',
         'description',
         'gender',
         'currency',
@@ -45,6 +49,17 @@ class User extends Authenticatable implements MustVerifyEmail
         'has_unseen_stories',
         'last_story_viewed_at',
         'password',
+        'city',
+        'region_id',
+        'content',
+        'card_holder',
+        'last_four',
+        'brand',
+        'is_default',
+        'token',
+        'read_at',
+        'product_id',
+        'quantity',
     ];
 
     protected $appends = ['avatar_url', 'shop_cover_url'];
@@ -73,19 +88,24 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
     }
 
+    public function tokens()
+    {
+        return $this->hasMany(Sanctum::personalAccessTokenModel(), 'tokenable_id');
+    }
+
     public function isClient(): bool
     {
-        return $this->role === 'client';
+        return $this->role === UserRole::CLIENT->value;
     }
 
     public function isSeller(): bool
     {
-        return $this->role === 'seller';
+        return $this->role === UserRole::SELLER->value;
     }
 
     public function isCourier(): bool
     {
-        return $this->role === 'courier';
+        return $this->role === UserRole::COURIER->value;
     }
 
     public function posts(): HasMany
@@ -96,6 +116,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    public function promotions(): HasMany
+    {
+        return $this->hasMany(Promotion::class);
     }
 
     public function cartItems(): HasMany
@@ -131,6 +156,12 @@ class User extends Authenticatable implements MustVerifyEmail
     public function favoriteProducts(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'favorite_products')
+            ->withTimestamps();
+    }
+
+    public function favoritePosts(): BelongsToMany
+    {
+        return $this->belongsToMany(Post::class, 'favorite_posts')
             ->withTimestamps();
     }
 
@@ -174,6 +205,36 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Message::class);
     }
 
+    public function reportsMade(): HasMany
+    {
+        return $this->hasMany(UserReport::class, 'reporter_id');
+    }
+
+    public function reportsReceived(): HasMany
+    {
+        return $this->hasMany(UserReport::class, 'reported_id');
+    }
+
+    public function blocksMade(): HasMany
+    {
+        return $this->hasMany(UserBlock::class, 'blocker_id');
+    }
+
+    public function blocksReceived(): HasMany
+    {
+        return $this->hasMany(UserBlock::class, 'blocked_id');
+    }
+
+    public function blockedUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'user_blocks', 'blocker_id', 'blocked_id');
+    }
+
+    public function blockedByUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'user_blocks', 'blocked_id', 'blocker_id');
+    }
+
     public function getAvatarUrlAttribute(): string
     {
         return Storage::url($this->avatar_path);
@@ -189,5 +250,39 @@ class User extends Authenticatable implements MustVerifyEmail
         return cache()->remember("user.$this->id.warehouses", 3600, function () {
             return $this->warehouseAddresses()->get();
         });
+    }
+
+    public function getSellerRatingAttribute(): ?float
+    {
+        if (!$this->isSeller()) {
+            return null;
+        }
+
+        $cacheKey = "seller_rating_$this->id";
+        if (cache()->has($cacheKey)) {
+            return cache()->get($cacheKey);
+        }
+
+        $ratedProducts = $this->products()
+            ->whereNotNull('rating')
+            ->where('rating', '>', 0)
+            ->get();
+
+        if ($ratedProducts->isEmpty()) {
+            cache()->put($cacheKey, null, 3600);
+            return null;
+        }
+
+        $totalRating = $ratedProducts->sum('rating');
+        $count = $ratedProducts->count();
+
+        if ($count > 0) {
+            $averageRating = round($totalRating / $count, 1);
+            cache()->put($cacheKey, $averageRating, 3600);
+            return $averageRating;
+        }
+
+        cache()->put($cacheKey, null, 3600);
+        return null;
     }
 }

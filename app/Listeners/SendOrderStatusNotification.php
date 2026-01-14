@@ -5,20 +5,14 @@ namespace App\Listeners;
 use App\Notifications\OrderStatusNotification;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
 
-class SendOrderStatusNotification
+class SendOrderStatusNotification implements ShouldQueue
 {
-    /**
-     * Create the event listener.
-     */
-    public function __construct()
-    {
-        //
-    }
+    use InteractsWithQueue, SerializesModels;
 
-    /**
-     * Handle the event.
-     */
+    public string $queue = 'high';
+
     public function handle(object $event): void
     {
         $event->order->user->notify(

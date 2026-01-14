@@ -29,6 +29,11 @@ return new class extends Migration
             $table->unsignedInteger('likes_count')->default(0);
             $table->unsignedInteger('reviews_count')->default(0);
             $table->timestamps();
+
+            $table->index('user_id');
+            $table->index('condition');
+            $table->index('inStock');
+            $table->index('created_at');
         });
     }
 

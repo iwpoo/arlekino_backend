@@ -4,16 +4,14 @@ namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class OrderStatusNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    /**
-     * Create a new notification instance.
-     */
+    public $queue = 'high';
+
     public function __construct(
         public $user,
         public $order,
@@ -21,19 +19,11 @@ class OrderStatusNotification extends Notification implements ShouldQueue
         public $forSeller = false
     ) {}
 
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
     public function via(object $notifiable): array
     {
         return ['database'];
     }
 
-    /**
-     * @return array{type: string, message: string, icon: string, link: string, actor: mixed, product_id: mixed}
-     */
     public function toDatabase($notifiable): array
     {
         return [
@@ -41,9 +31,15 @@ class OrderStatusNotification extends Notification implements ShouldQueue
             'message' => $this->getStatusMessage(),
             'icon' => 'mdi-package-variant-closed',
             'link' => $this->forSeller
-                ? route('seller.orders.show', $this->order->id)
-                : route('orders.show', $this->order->id),
-            'user' => $this->user
+                ? '/order/' . $this->order->id
+                : '/order/' . $this->order->id,
+            'order_id' => $this->order->id,
+            'status' => $this->status,
+            'user' => [
+                'id' => $this->user->id,
+                'name' => $this->user->name,
+                'avatar_url' => $this->user->avatar_url,
+            ]
         ];
     }
 

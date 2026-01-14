@@ -7,6 +7,10 @@ use App\Models\User;
 
 class OrderPolicy
 {
+    public function view(User $user, Order $order): bool {
+        return $user->id === $order->user_id || $order->sellerOrders()->where('seller_id', $user->id)->exists();
+    }
+
     public function store(User $user): bool
     {
         if ($user->isClient()) {
@@ -30,9 +34,14 @@ class OrderPolicy
         }
 
         if ($user->isClient() && $order->user_id === $user->id) {
-            return in_array(request()->status, ['canceled']);
+            return request()->status == 'canceled';
         }
 
         return false;
+    }
+
+    public function update(User $user, Order $order): bool
+    {
+        return $user->id === $order->user_id;
     }
 }

@@ -3,24 +3,22 @@
 namespace App\Listeners;
 
 use App\Notifications\SellerOrderStatusNotification;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
 
-class SendSellerOrderStatusNotification
+class SendSellerOrderStatusNotification implements ShouldQueue
 {
-    /**
-     * Create the event listener.
-     */
-    public function __construct()
-    {
-        //
-    }
+    use InteractsWithQueue, SerializesModels;
 
-    /**
-     * Handle the event.
-     */
+    public string $queue = 'high';
+
     public function handle(object $event): void
     {
-        $event->order->user->notify(
-            new SellerOrderStatusNotification($event->user, $event->order, $event->newStatus)
-        );
+        if ($event->order->seller) {
+            $event->order->seller->notify(
+                new SellerOrderStatusNotification($event->user, $event->order, $event->newStatus)
+            );
+        }
     }
 }

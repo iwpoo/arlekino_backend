@@ -16,8 +16,48 @@ class WarehouseAddressFactory extends Factory
      */
     public function definition(): array
     {
+        $streets = [
+            'ул. Ленина',
+            'ул. Советская',
+            'ул. Мира',
+            'ул. Гагарина',
+            'ул. Пушкина',
+            'ул. Кирова',
+            'ул. Марата',
+            'ул. Владимирская',
+        ];
+        
+        $cities = [
+            'Москва',
+            'Санкт-Петербург',
+            'Новосибирск',
+            'Екатеринбург',
+            'Казань',
+            'Нижний Новгород',
+            'Челябинск',
+            'Самара',
+            'Омск',
+            'Ростов-на-Дону',
+            'Бишкек',
+            'Ош',
+        ];
+        
+        $countries = [
+            'Россия',
+            'Кыргызстан',
+        ];
+        
+        $address = sprintf(
+            '%s, дом %d, %s, %s',
+            $streets[array_rand($streets)],
+            rand(1, 100),
+            $cities[array_rand($cities)],
+            $countries[array_rand($countries)]
+        );
+        
         return [
-            //
+            'address' => $address,
+            'is_default' => false,
         ];
     }
 }

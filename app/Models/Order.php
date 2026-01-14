@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -65,5 +67,24 @@ class Order extends Model
     public function isPaid(): bool
     {
         return !is_null($this->paid_at);
+    }
+
+    public function generateNewQrToken(): void
+    {
+        if (!$this->qr_token || now()->gt($this->expires_at)) {
+            $this->update([
+                'qr_token' => Str::random(32),
+                'expires_at' => now()->addHours(24),
+            ]);
+        }
+    }
+
+    public function getQrCodeBase64(): string
+    {
+        $options = new QROptions([
+            'outputType' => QRCode::OUTPUT_IMAGE_PNG,
+            'scale' => 10,
+        ]);
+        return (new QRCode($options))->render(route('order.status.update', ['order' => $this->id]));
     }
 }

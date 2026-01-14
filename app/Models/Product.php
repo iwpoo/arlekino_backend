@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\DiscountType;
 use App\Enums\ItemCondition;
+use App\Jobs\SyncEntityToElasticsearch;
+use Exception;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,15 +35,26 @@ class Product extends Model
         'shares_count',
         'likes_count',
         'reviews_count',
+        'questions_count',
+        'rating',
         'variants',
-        'similarProducts'
+        'similarProducts',
+        'question'
     ];
+
+    protected $appends = ['best_promotion'];
 
     protected $casts = [
         'condition' => ItemCondition::class,
         'discountType' => DiscountType::class,
         'attributes' => 'array',
     ];
+
+    protected static function booted(): void
+    {
+        static::saved(fn ($model) => SyncEntityToElasticsearch::dispatch($model));
+        static::deleted(fn ($model) => SyncEntityToElasticsearch::dispatch($model, true));
+    }
 
     public function user(): BelongsTo
     {
@@ -68,9 +81,24 @@ class Product extends Model
         return $this->belongsToMany(User::class, 'favorite_products');
     }
 
+    public function promotions(): BelongsToMany
+    {
+        return $this->belongsToMany(Promotion::class, 'promotion_product');
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function questions(): HasMany
+    {
+        return $this->hasMany(ProductQuestion::class);
+    }
+
     public function withVariants(): self
     {
-        $cacheKey = "product_variants_{$this->id}";
+        $cacheKey = "product_variants_$this->id";
         $cacheDuration = now()->addHours();
 
         $this->variants = Cache::remember($cacheKey, $cacheDuration, function() {
@@ -102,7 +130,7 @@ class Product extends Model
                 ->where(function($query) {
                     $keywords = explode(' ', $this->title);
                     foreach (array_slice($keywords, 0, 3) as $keyword) {
-                        $query->orWhere('title', 'like', "%{$keyword}%");
+                        $query->orWhere('title', 'like', "%$keyword%");
                     }
                 })
                 ->orderByRaw("
@@ -148,7 +176,7 @@ class Product extends Model
         try {
             $points = json_decode($this->points, true);
             return is_array($points) ? $points : [];
-        } catch (\Exception $e) {
+        } catch (Exception) {
             return [];
         }
     }
@@ -157,5 +185,67 @@ class Product extends Model
     {
         $points = $this->delivery_points;
         return !empty($points) ? $points[0] : null;
+    }
+
+    public function getBestPromotion(): ?Promotion
+    {
+        $activePromotions = $this->promotions()
+            ->active()
+            ->get();
+
+        if ($activePromotions->isEmpty()) {
+            return null;
+        }
+
+        if ($activePromotions->count() === 1) {
+            return $activePromotions->first();
+        }
+
+        return $activePromotions->reduce(function (?Promotion $carry, Promotion $promotion) {
+            if ($carry === null) {
+                return $promotion;
+            }
+
+            $carryDiscount = $carry->calculateDiscountedPrice($this->price);
+            $currentDiscount = $promotion->calculateDiscountedPrice($this->price);
+
+            if ($currentDiscount < $carryDiscount) {
+                return $promotion;
+            }
+
+            if ($currentDiscount === $carryDiscount && $promotion->created_at > $carry->created_at) {
+                return $promotion;
+            }
+
+            return $carry;
+        });
+    }
+
+    public function getFinalPrice(): float
+    {
+        $bestPromotion = $this->getBestPromotion();
+
+        if ($bestPromotion) {
+            return $bestPromotion->calculateDiscountedPrice($this->price);
+        }
+
+        return $this->price;
+    }
+
+    public function getBestPromotionAttribute(): ?Promotion
+    {
+        return $this->getBestPromotion();
+    }
+
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'title' => $this->title,
+            'content' => $this->content,
+            'popularity' => $this->likes_count + $this->views_count,
+            'created_at' => $this->created_at->format('Y-m-d H:i:s'),
+            'is_published' => (bool)$this->is_published,
+        ];
     }
 }

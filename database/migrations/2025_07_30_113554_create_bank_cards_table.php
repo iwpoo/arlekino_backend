@@ -20,6 +20,8 @@ return new class extends Migration
             $table->string('token')->unique();
             $table->boolean('is_default')->default(false);
             $table->timestamps();
+            
+            $table->index('user_id');
         });
     }
 

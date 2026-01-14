@@ -3,44 +3,32 @@
 namespace App\Services;
 
 use App\Helpers\MediaUploader;
-use App\Models\User;
+use App\Jobs\ProcessProfileImageJob;
 use App\Services\Contracts\ProfileServiceInterface;
 use DB;
-use Exception;
-use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableAlias;
 use Illuminate\Support\Facades\Auth;
-use Throwable;
+use Illuminate\Support\Facades\Cache;
 
 class ClientProfileService implements ProfileServiceInterface
 {
-    protected AuthenticatableAlias|null|User $user;
+    public function __construct(protected MediaUploader $uploader) {}
 
-    public function __construct(protected MediaUploader $uploader)
-    {
-        $this->user = Auth::user();
-    }
-
-    /**
-     * @throws Throwable
-     */
     public function update(array $data): array
     {
-        DB::beginTransaction();
+        $user = Auth::user();
 
-        try {
-            if (isset($data['avatar'])) {
-                $this->user->avatar_path = $this->uploader->upload($data['avatar'], 'public', 'avatars', $this->user->avatar_path);
-                unset($data['avatar']);
-            }
+        if (isset($data['avatar'])) {
+            $tempPath = $data['avatar']->store('temp/avatars', 'public');
 
-            $this->user->update($data);
+            ProcessProfileImageJob::dispatch($user->id, $tempPath, 'avatar');
 
-            DB::commit();
-
-            return ['user' => $this->user->fresh()];
-        } catch (Exception $e) {
-            DB::rollBack();
-            throw $e;
+            unset($data['avatar']);
         }
+
+        $user->update($data);
+
+        Cache::forget("user_profile_$user->id");
+
+        return ['user' => $user->fresh()];
     }
 }
