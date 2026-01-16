@@ -1,50 +1,50 @@
 # Arlekino Backend
 
-A high-performance social commerce service platform built on Laravel 12. The system architecture is engineered to ensure seamless interaction between the social networking modules and the intelligent marketplace.
+Высокопроизводительная платформа социального e-commerce, построенная на Laravel 12. Архитектура системы спроектирована для бесшовного взаимодействия между социальными модулями и интеллектуальным маркетплейсом.
 
-## 🏗️ Project Overview
+## 🏗️ Обзор проекта
 
-The Arlekino project is an innovative hybrid platform that blends social networking and marketplace functionality with deep AI integration. It is positioned not merely as a trading floor, but as an intelligent ecosystem ('AI Market') that automates the interaction between buyers and sellers.
+Arlekino — это инновационная гибридная платформа, объединяющая социальную сеть и маркетплейс с глубокой интеграцией ИИ. Проект позиционируется не просто как торговая площадка, а как интеллектуальная экосистема («AI Market»), автоматизирующая взаимодействие между покупателями и продавцами.
 
-### Key Features
+### Ключевые возможности
 
-- **Multi-role User System**: Clients, Sellers, and Couriers with role-based access control
-- **Social Networking**: Posts, stories, comments, likes, and following system
-- **Advanced Product Catalog**: Categories, variants, promotions, and search functionality
-- **Order Management**: Complete order lifecycle with QR code tracking
-- **Return Processing**: Sophisticated return workflow with logistics integration
-- **Real-time Communication**: WebSocket-powered messaging and notifications
-- **Payment Integration**: Stripe payments with multi-currency support
-- **Search Engine**: Elasticsearch-powered product and content search
-- **Analytics Dashboard**: Seller analytics and performance metrics
+- **Многоролевая система пользователей**: Клиенты, Продавцы и Курьеры с ролевым доступом
+- **Социальная сеть**: Посты, сторис, комментарии, лайки и система подписок
+- **Продвинутый каталог товаров**: Категории, вариации, акции и поиск
+- **Управление заказами**: Полный жизненный цикл заказа с QR-код трекингом
+- **Обработка возвратов**: Продуманный workflow возвратов с интеграцией логистики
+- **Общение в реальном времени**: Сообщения и уведомления на базе WebSocket
+- **Платёжные системы**: Интеграция Stripe с поддержкой нескольких валют
+- **Поисковый движок**: Поиск по товарам и контенту на базе Elasticsearch
+- **Аналитическая панель**: Метрики и аналитика для продавцов
 
-## 🛠️ Tech Stack
+## 🛠️ Технологический стек
 
-### Core Technologies
+### Основные технологии
 - **PHP**: 8.2+
 - **Laravel**: 12
-- **Database**: MySQL 8.0+
-- **Cache**: Redis
-- **Search**: Elasticsearch 9.2.3
-- **Queue**: Redis (database driver)
+- **База данных**: MySQL 8.0+
+- **Кэш**: Redis
+- **Поиск**: Elasticsearch 9.2.3
+- **Очереди**: Redis (database driver)
 - **WebSocket**: Laravel Reverb
 
-### Key Dependencies
-- **Authentication**: Laravel Sanctum for API token management
-- **Media Processing**: Intervention Image, Laravel FFmpeg
-- **SMS/Communication**: Twilio SDK
-- **Excel**: Maatwebsite Excel for exports
-- **Search**: TNTSearch, Elasticsearch PHP client
-- **QR Codes**: chillerlan/php-qrcode
+### Ключевые зависимости
+- **Аутентификация**: Laravel Sanctum (API-токены)
+- **Обработка медиа**: Intervention Image, Laravel FFmpeg
+- **SMS / коммуникации**: Twilio SDK
+- **Excel**: Maatwebsite Excel (экспорт данных)
+- **Поиск**: TNTSearch, PHP-клиент Elasticsearch
+- **QR-коды**: chillerlan/php-qrcode
 
-## 🚀 Arlekino Backend: Full Deployment Guide
+## 🚀 Arlekino Backend: Полное руководство по развертыванию
 
-### 🛠️ Installation & Setup
+### 🛠️ Установка и настройка
 
-#### 1. Prerequisites
-   Ensure you have Docker and Composer installed.
+#### 1. Требования
+Убедитесь, что у вас установлены **Docker** и **Composer**.
 
-#### 2. Environment Configuration
+#### 2. Настройка окружения
 
 ```bash
 git clone <repository-url>
@@ -69,7 +69,7 @@ REVERB_PORT=8080
 REVERB_SCHEME=http
 ```
 
-#### 3. Start Infrastructure (Sail)
+#### 3. Запуск инфраструктуры (Sail)
 
 ```bash
 ./vendor/bin/sail up -d --build
@@ -77,7 +77,7 @@ REVERB_SCHEME=http
 ./vendor/bin/sail artisan migrate
 ```
 
-#### 4. Running console commands
+#### 4. Запуск консольных команд
 
 ```bash
 ./vendor/bin/sail artisan import:market-taxonomy
@@ -85,44 +85,44 @@ REVERB_SCHEME=http
 ./vendor/bin/sail artisan app:setup-elasticsearch
 ```
 
-## 🏗️ Queue Management (Background Workers)
+## 🏗️ Управление очередями (фоновые воркеры)
 
-The Arlekino system uses priority queue division to ensure highload stability.
+В системе Arlekino используется разделение очередей по приоритетам для обеспечения стабильной работы под высокой нагрузкой.
 
-#### Running workers in Docker
+#### Запуск воркеров в Docker
 
-#### 1. High Priority Queue (Chats, SMS, Orders)
+#### 1. Очередь высокого приоритета (чаты, SMS, заказы)
 
 ```bash
 ./vendor/bin/sail artisan queue:work --queue=high --backoff=3 --tries=3 --timeout=30
 ```
 
-#### 2. Standard Queue (Notifications, Content)
+#### 2. Стандартная очередь (уведомления, контент)
 
 ```bash
 ./vendor/bin/sail artisan queue:work --queue=notifications,default --backoff=5 --tries=2
 ```
 
-#### 3. Low Priority and Analytics (Video, Reports)
+#### 3. Низкий приоритет и аналитика (видео, отчёты)
 
 ```bash
 ./vendor/bin/sail artisan queue:work --queue=notifications,default --backoff=5 --tries=2
 ```
 
-#### Monitoring (Laravel Horizon)
+#### Мониторинг (Laravel Horizon)
 
-The project is configured to use Horizon for visual queue control:
-- Go to address: http://localhost:8000/horizon
-- Launching in Sail:
+Проект настроен на использование Laravel Horizon для визуального управления очередями:
+- Адрес: http://localhost:8000/horizon
+- Запуск в Sail:
 
 ```bash
 ./vendor/bin/sail artisan horizon
 ```
 
-## 📡 Real-time & WebSockets (Laravel Reverb)
-To operate chats and instant protocols, the Reverb server is used, forwarded through port 8080.
+## 📡 Работа в реальном времени и WebSocket (Laravel Reverb)
+Для работы чатов и мгновенных протоколов используется сервер Reverb, проброшенный на порт 8080.
 
-#### Launching the broadcast server:
+#### Запуск broadcast сервера:
 ```bash
 ./vendor/bin/sail artisan reverb:start --debug
 ```
