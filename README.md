@@ -106,7 +106,7 @@ REVERB_SCHEME=http
 #### 3. Низкий приоритет и аналитика (видео, отчёты)
 
 ```bash
-./vendor/bin/sail artisan queue:work --queue=notifications,default --backoff=5 --tries=2
+./vendor/bin/sail artisan queue:work --queue=low,analytics --backoff=5 --tries=2
 ```
 
 #### Мониторинг (Laravel Horizon)
