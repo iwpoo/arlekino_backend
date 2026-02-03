@@ -42,7 +42,6 @@ class UserController extends Controller
 
         try {
             $result = $this->profileService->update($request->validated());
-            Cache::forget("user_auth:$user->id");
             return response()->json(['data' => $result]);
         } catch (Throwable $e) {
             Log::error('Profile update error: ' . $e->getMessage());
@@ -76,7 +75,7 @@ class UserController extends Controller
     {
         $result = $this->userService->getUsersWithStories($request);
 
-        return response()->json($result['data'], ['message' => $result['message']]);
+        return response()->json($result['data']);
     }
 
     public function search(Request $request): JsonResponse

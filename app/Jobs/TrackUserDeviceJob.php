@@ -48,7 +48,5 @@ class TrackUserDeviceJob implements ShouldQueue
                 'authorized_devices' => $filtered->prepend($newDevice)->take(10)->values()->toArray()
             ]);
         });
-
-        Cache::forget("user_auth:{$this->user->id}");
     }
 }

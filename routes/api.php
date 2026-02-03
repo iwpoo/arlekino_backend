@@ -42,6 +42,7 @@ Route::prefix('v1')->group(static function (): void {
     // --- PUBLIC & AUTH ENTRANCE ---
     Route::prefix('auth')->group(static function (): void {
         Route::post('login', [AuthController::class, 'login']);
+        Route::post('refresh', [AuthController::class, 'refresh']);
         Route::get('email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])->name('verification.verify');
 
         // Password Recovery

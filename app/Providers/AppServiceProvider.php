@@ -17,6 +17,8 @@ use App\Listeners\SendProductQuestionAnsweredNotification;
 use App\Listeners\SendProductQuestionCreatedNotification;
 use App\Listeners\SendSellerOrderStatusNotification;
 use App\Listeners\SendSocialActivityNotification;
+use App\Models\User;
+use App\Observers\UserObserver;
 use App\Services\ClientProfileService;
 use App\Services\Contracts\OrderProcessingServiceInterface;
 use App\Services\Contracts\ProfileServiceInterface;
@@ -110,5 +112,7 @@ class AppServiceProvider extends ServiceProvider
             ProductQuestionCreated::class,
             SendProductQuestionCreatedNotification::class
         );
+
+        User::observe(UserObserver::class);
     }
 }

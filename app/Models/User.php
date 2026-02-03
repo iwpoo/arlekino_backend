@@ -15,7 +15,6 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Laravel\Sanctum\Sanctum;
 use App\Enums\UserRole;
 
 class User extends Authenticatable implements MustVerifyEmail
@@ -86,11 +85,6 @@ class User extends Authenticatable implements MustVerifyEmail
             'payment_methods' => 'array',
             'authorized_devices' => 'array',
         ];
-    }
-
-    public function tokens()
-    {
-        return $this->hasMany(Sanctum::personalAccessTokenModel(), 'tokenable_id');
     }
 
     public function isClient(): bool

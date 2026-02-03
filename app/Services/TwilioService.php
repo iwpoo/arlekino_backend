@@ -23,7 +23,7 @@ class TwilioService
 
     public function sendVerificationCodeQueue(string $to): bool
     {
-        if (RateLimiter::tooManyAttempts('send-code:'.$to, config('services.twilio.verification_send_attempts_limit', 1))) {
+        if (RateLimiter::tooManyAttempts('send-code:'.$to, (int) config('services.twilio.verification_send_attempts_limit', 1))) {
             return false;
         }
 
@@ -56,7 +56,7 @@ class TwilioService
 
     public function verifyCode(string $to, string $code): bool
     {
-        if (RateLimiter::tooManyAttempts('verify-code:'.$to, config('services.twilio.verification_verify_attempts_limit', 5))) {
+        if (RateLimiter::tooManyAttempts('verify-code:'.$to, (int) config('services.twilio.verification_verify_attempts_limit', 5))) {
             return false;
         }
 
@@ -71,7 +71,7 @@ class TwilioService
                 return true;
             }
 
-            RateLimiter::hit('verify-code:'.$to, config('services.twilio.verification_verify_timeout_seconds', 300));
+            RateLimiter::hit('verify-code:'.$to, (int) config('services.twilio.verification_verify_timeout_seconds', 300));
             return false;
         } catch (TwilioException $e) {
             $this->logError('check failed', $to, $e, $code);

@@ -121,7 +121,7 @@ class PostService
         return Cache::remember("user_{$user->id}_$relation", 3600, function () use ($user, $relation) {
             return match($relation) {
                 'blocked' => $user->blockedUsers()->pluck('blocked_id')->toArray(),
-                'following' => $user->followings()->pluck('following_id')->toArray(),
+                'following' => $user->following()->pluck('following_id')->toArray(),
                 'followers' => $user->followers()->pluck('follower_id')->toArray(),
             };
         });

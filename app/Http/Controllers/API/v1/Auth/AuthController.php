@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API\v1\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Services\AuthService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -22,7 +23,33 @@ class AuthController extends Controller
             $request->userAgent()
         );
 
-        return response()->json($result);
+        return response()->json([
+            'user' => $result['user'],
+            'access_token' => $result['access_token']
+        ])->cookie(
+            'refresh_token', $result['refresh_token'], 43200,
+            null, null, true, true
+        );
+    }
+
+    public function refresh(Request $request): JsonResponse
+    {
+        $refreshToken = $request->cookie('refresh_token');
+
+        if (!$refreshToken) {
+            return response()->json(['message' => 'Refresh token missing'], 401);
+        }
+
+        try {
+            $result = $this->authService->refreshAccessToken($refreshToken);
+
+            return response()->json([
+                'access_token' => $result['access_token']
+            ]);
+        } catch (Exception) {
+            return response()->json(['message' => 'Invalid refresh token'], 401)
+                ->withoutCookie('refresh_token');
+        }
     }
 
     public function me(Request $request): JsonResponse
@@ -33,7 +60,8 @@ class AuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
-        return response()->json(['message' => 'Выход из системы пройден успешно']);
+        return response()->json(['message' => 'Успешный выход'])
+            ->withoutCookie('refresh_token');
     }
 
     public function verifyEmail(string $id, string $hash): JsonResponse

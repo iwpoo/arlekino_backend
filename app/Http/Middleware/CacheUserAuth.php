@@ -19,7 +19,7 @@ class CacheUserAuth
         if ($user = $request->user()) {
             $cacheKey = "user_auth:$user->id";
 
-            $cachedUser = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($user) {
+            $cachedUser = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($user) {
                 return $user;
             });
 

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\{Hash, Cache, Log, RateLimiter, DB};
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 use RuntimeException;
 use Throwable;
 
@@ -20,7 +21,7 @@ class AuthService
         $login = $data['login'];
         $throttleKey = 'login:' . Str::slug($login);
 
-        if (RateLimiter::tooManyAttempts($throttleKey, config('services.auth.login_attempts_limit', 5))) {
+        if (RateLimiter::tooManyAttempts($throttleKey, (int) config('services.auth.login_attempts_limit', 5))) {
             throw ValidationException::withMessages([
                 'login' => __('auth.throttle', ['seconds' => RateLimiter::availableIn($throttleKey)]),
             ]);
@@ -31,7 +32,7 @@ class AuthService
         $user = User::where($field, $login)->first();
 
         if (!$user || !Hash::check($data['password'], $user->password)) {
-            RateLimiter::hit($throttleKey, config('services.auth.login_timeout_seconds', 600));
+            RateLimiter::hit($throttleKey, (int) config('services.auth.login_timeout_seconds', 600));
             throw ValidationException::withMessages(['login' => 'Неверные учетные данные.']);
         }
 
@@ -41,10 +42,39 @@ class AuthService
 
         TrackUserDeviceJob::dispatch($user, $ip, $userAgent);
 
+        $accessToken = $user->createToken('access_token', ['*'], now()->addMinutes(15))->plainTextToken;
+        $refreshToken = $user->createToken('refresh_token', ['issue-access-token'], now()->addDays(30))->plainTextToken;
+
         return [
             'user'  => $user,
-            'token' => $user->createToken('auth_token')->plainTextToken,
+            'access_token' => $accessToken,
+            'refresh_token' => $refreshToken,
         ];
+    }
+
+    public function refreshAccessToken(string $refreshToken): array
+    {
+        $tokenModel = PersonalAccessToken::findToken($refreshToken);
+
+        if (!$tokenModel ||
+            $tokenModel->expires_at?->isPast() ||
+            !$tokenModel->can('issue-access-token')) {
+            throw ValidationException::withMessages([
+                'refresh_token' => ['Сессия истекла, войдите заново.']
+            ]);
+        }
+
+        $user = $tokenModel->tokenable;
+
+        $user->tokens()->where('name', 'access_token')->delete();
+
+        $newAccessToken = $user->createToken(
+            'access_token',
+            ['*'],
+            now()->addMinutes(config('services.auth.access_token_lifespan', 15))
+        )->plainTextToken;
+
+        return ['access_token' => $newAccessToken];
     }
 
     public function sendPhoneCode(string $phone): void
@@ -54,11 +84,11 @@ class AuthService
         }
 
         $rateKey = "phone_code:$phone";
-        if (RateLimiter::tooManyAttempts($rateKey, config('services.auth.phone_verification_attempts_limit', 3))) {
+        if (RateLimiter::tooManyAttempts($rateKey, (int) config('services.auth.phone_verification_attempts_limit', 3))) {
             throw ValidationException::withMessages(['phone' => 'Слишком много попыток.']);
         }
 
-        RateLimiter::hit($rateKey, config('services.auth.phone_verification_timeout_seconds', 3600));
+        RateLimiter::hit($rateKey, (int) config('services.auth.phone_verification_timeout_seconds', 3600));
         $this->twilioService->sendVerificationCodeQueue($phone);
     }
 
@@ -74,10 +104,27 @@ class AuthService
         $user = User::where('phone', $phone)->first();
 
         if ($user) {
+            $user->tokens()->delete();
+
+            $user->tokens()->create([
+                'name' => 'access_token',
+                'token' => hash('sha256', $atPlain = Str::random(40)),
+                'abilities' => ['*'],
+                'expires_at' => now()->addMinutes(15),
+            ]);
+
+            $user->tokens()->create([
+                'name' => 'refresh_token',
+                'token' => hash('sha256', $rtPlain = Str::random(40)),
+                'abilities' => ['issue-access-token'],
+                'expires_at' => now()->addDays(30),
+            ]);
+
             return [
-                'type'  => 'login',
-                'user'  => $user,
-                'token' => $user->createToken('auth_token')->plainTextToken
+                'type'          => 'login',
+                'user'          => $user,
+                'access_token'  => $atPlain,
+                'refresh_token' => $rtPlain,
             ];
         }
 
@@ -110,9 +157,24 @@ class AuthService
 
             TrackUserDeviceJob::dispatch($user, $ip, $userAgent);
 
+            $user->tokens()->create([
+                'name' => 'access_token',
+                'token' => hash('sha256', $atPlain = Str::random(40)),
+                'abilities' => ['*'],
+                'expires_at' => now()->addMinutes(15),
+            ]);
+
+            $user->tokens()->create([
+                'name' => 'refresh_token',
+                'token' => hash('sha256', $rtPlain = Str::random(40)),
+                'abilities' => ['issue-access-token'],
+                'expires_at' => now()->addDays(30),
+            ]);
+
             return [
-                'user'  => $user,
-                'token' => $user->createToken('auth_token')->plainTextToken,
+                'user'          => $user,
+                'access_token'  => $atPlain,
+                'refresh_token' => $rtPlain,
             ];
         } catch (QueryException $e) {
             Log::error("Registration DB Error: " . $e->getMessage());
