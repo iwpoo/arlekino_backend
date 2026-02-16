@@ -7,9 +7,11 @@ use App\Jobs\ProcessProfileImageJob;
 use App\Models\User;
 use App\Services\Contracts\ProfileServiceInterface;
 use DB;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 
 class SellerProfileService implements ProfileServiceInterface
@@ -22,7 +24,7 @@ class SellerProfileService implements ProfileServiceInterface
 
         try {
             return DB::transaction(function () use ($user, $data) {
-                if (isset($data['avatar'])) {
+                if (isset($data['avatar']) && $data['avatar'] instanceof UploadedFile) {
                     $tempPath = $data['avatar']->store('temp/avatars', 'public');
                     ProcessProfileImageJob::dispatch($user->id, $tempPath, 'avatar');
                 }
@@ -48,7 +50,7 @@ class SellerProfileService implements ProfileServiceInterface
                 'data_keys' => array_keys($data)
             ]);
 
-            throw new \RuntimeException("Не удалось обновить профиль. Попробуйте позже.");
+            throw new RuntimeException("Не удалось обновить профиль. Попробуйте позже.");
         }
     }
 

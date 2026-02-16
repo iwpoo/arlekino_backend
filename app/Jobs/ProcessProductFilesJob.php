@@ -42,12 +42,18 @@ class ProcessProductFilesJob implements ShouldQueue
                 $fullNewPath = Storage::disk('public')->path($newPath);
 
                 if (str_contains($file['mime'], 'image')) {
-                    Image::read($fullOldPath)
+                    $img = Image::read($fullOldPath)
                         ->scaleDown(width: 1200)
-                        ->toJpeg(quality: 85)
-                        ->save($fullNewPath);
+                        ->toJpeg(quality: 85);
+
+                    Storage::disk('public')->put($newPath, $img->toString());
+
                     Storage::disk('public')->delete($oldPath);
                 } else {
+                    $directory = dirname($newPath);
+                    if (!Storage::disk('public')->exists($directory)) {
+                        Storage::disk('public')->makeDirectory($directory);
+                    }
                     Storage::disk('public')->move($oldPath, $newPath);
                 }
 

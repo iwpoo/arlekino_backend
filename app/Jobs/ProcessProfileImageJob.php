@@ -34,22 +34,22 @@ class ProcessProfileImageJob implements ShouldQueue
         $filename = basename($this->tempPath);
         $finalPath = "$directory/$filename";
 
-        $img = Image::make(Storage::disk('public')->path($this->tempPath));
+        $img = Image::read(Storage::disk('public')->path($this->tempPath));
 
         if ($this->type === 'avatar') {
-            $img->fit(300, 300);
+            $img->cover(300, 300);
         } else {
-            $img->resize(1200, null, fn($c) => $c->aspectRatio());
+            $img->scale(width: 1200);
         }
 
-        $img->encode('jpg', 85);
-        Storage::disk('public')->put($finalPath, $img);
+        $encoded = $img->toJpeg(85);
+        Storage::disk('public')->put($finalPath, $encoded);
 
         if ($user->$field) {
-            Storage::disk('public')->delete(str_replace('/storage/', '', $user->$field));
+            Storage::disk('public')->delete($user->$field);
         }
 
-        $user->update([$field => '/storage/' . $finalPath]);
+        $user->update([$field => $finalPath]);
         Storage::disk('public')->delete($this->tempPath);
     }
 }

@@ -8,6 +8,7 @@ use App\Services\AuthService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -54,7 +55,11 @@ class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        return response()->json(['user' => $request->user()]);
+        $user = $request->user()->load('warehouseAddresses');
+
+        return response()->json([
+            'user' => $user
+        ]);
     }
 
     public function logout(Request $request): JsonResponse
