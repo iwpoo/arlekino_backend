@@ -10,15 +10,15 @@ class MessageNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    public $queue = 'notifications';
-
     public bool $deleteWhenMissingModels = true;
 
     public function __construct(
         public $message,
         public $sender,
         public $chat = null
-    ) {}
+    ) {
+        $this->onQueue('notifications');
+    }
 
     public function via(object $notifiable): array
     {

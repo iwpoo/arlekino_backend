@@ -39,7 +39,6 @@ class ProcessProductFilesJob implements ShouldQueue
                 if (!Storage::disk('public')->exists($oldPath)) continue;
 
                 $fullOldPath = Storage::disk('public')->path($oldPath);
-                $fullNewPath = Storage::disk('public')->path($newPath);
 
                 if (str_contains($file['mime'], 'image')) {
                     $img = Image::read($fullOldPath)

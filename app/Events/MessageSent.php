@@ -5,26 +5,26 @@ namespace App\Events;
 use App\Models\Message;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
 class MessageSent implements ShouldBroadcast
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
-
-    public string $queue = 'high';
+    use Dispatchable, Queueable, InteractsWithSockets, SerializesModels;
 
     public function __construct(
         public Message $message
     ) {
+        $this->onQueue('high');
         $this->message->loadMissing('user');
     }
 
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel("chat.room.{$this->message->chat_id}"),
+            new PrivateChannel("chat.{$this->message->chat_id}"),
         ];
     }
 

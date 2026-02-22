@@ -19,18 +19,13 @@ class PostController extends Controller
     public function __construct(
         protected PostService $postService
     ) {}
-    /**
-     * Display a listing of the resource.
-     */
+
     public function index(Request $request): JsonResponse
     {
         $posts = $this->postService->getPosts($request->user(), $request->all());
         return response()->json($posts);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(PostCreateRequest $request): JsonResponse
     {
         $post = $this->postService->createPost(

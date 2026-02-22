@@ -19,6 +19,7 @@ class PostService
     public function getPosts(User $user, array $params): LengthAwarePaginator
     {
         $type = $params['type'] ?? 'subscriptions';
+        $userId = $params['user_id'] ?? null;
         $perPage = (int)($params['per_page'] ?? 10);
 
         $blockedIds = $this->getCachedIds($user, 'blocked');
@@ -42,7 +43,7 @@ class PostService
             $query->whereIn('user_id', $userIds)->where('user_id', '!=', $user->id);
         }
         elseif ($type === 'user_posts') {
-            $query->where('user_id', $user->id);
+            $query->where('user_id', $userId);
         }
         elseif ($type === 'recommendations') {
             $query->orderByDesc('likes_count');

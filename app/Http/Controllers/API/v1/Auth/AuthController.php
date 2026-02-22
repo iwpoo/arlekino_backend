@@ -8,7 +8,6 @@ use App\Services\AuthService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -26,16 +25,14 @@ class AuthController extends Controller
 
         return response()->json([
             'user' => $result['user'],
-            'access_token' => $result['access_token']
-        ])->cookie(
-            'refresh_token', $result['refresh_token'], 43200,
-            null, null, true, true
-        );
+            'access_token' => $result['access_token'],
+            'refresh_token' => $result['refresh_token']
+        ]);
     }
 
     public function refresh(Request $request): JsonResponse
     {
-        $refreshToken = $request->cookie('refresh_token');
+        $refreshToken = $request->input('refresh_token');
 
         if (!$refreshToken) {
             return response()->json(['message' => 'Refresh token missing'], 401);
@@ -48,8 +45,7 @@ class AuthController extends Controller
                 'access_token' => $result['access_token']
             ]);
         } catch (Exception) {
-            return response()->json(['message' => 'Invalid refresh token'], 401)
-                ->withoutCookie('refresh_token');
+            return response()->json(['message' => 'Invalid refresh token'], 401);
         }
     }
 
@@ -65,8 +61,7 @@ class AuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
-        return response()->json(['message' => 'Успешный выход'])
-            ->withoutCookie('refresh_token');
+        return response()->json(['message' => 'Успешный выход']);
     }
 
     public function verifyEmail(string $id, string $hash): JsonResponse

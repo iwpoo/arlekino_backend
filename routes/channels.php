@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Broadcast;
 
 Broadcast::routes(['middleware' => ['auth:sanctum']]);
 
-Broadcast::channel('chat.room.{chatId}', static function (User $user, int $chatId): bool {
+Broadcast::channel('chat.{chatId}', static function (User $user, int $chatId): bool {
     return DB::table('chat_user')
         ->where('chat_id', $chatId)
         ->where('user_id', $user->id)

@@ -78,15 +78,14 @@ class ProcessStoryFile implements ShouldQueue
 
     protected function processImage(string $inputPath): void
     {
-        $img = Image::make(Storage::disk('public')->path($inputPath));
+        $img = Image::read(Storage::disk('public')->path($inputPath));
 
-        $img->resize(1080, 1920, function ($constraint) {
-            $constraint->aspectRatio();
-            $constraint->upsize();
-        })->encode('jpg', 85);
+        $img->scaleDown(width: 1080, height: 1920);
+
+        $encoded = $img->toJpeg(85);
 
         $outputPath = 'stories/' . date('Y/m') . '/' . uniqid() . '.jpg';
-        Storage::disk('public')->put($outputPath, (string) $img);
+        Storage::disk('public')->put($outputPath, $encoded);
 
         Storage::disk('public')->delete($inputPath);
         $this->story->update(['file_path' => $outputPath]);
