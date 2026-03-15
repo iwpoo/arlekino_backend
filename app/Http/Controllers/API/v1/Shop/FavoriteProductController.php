@@ -37,6 +37,8 @@ class FavoriteProductController extends Controller
         $user = Auth::user();
         $user->favoriteProducts()->detach($product->id);
 
+        Cache::forget("user:$user->id:fav_check:$product->id");
+
         return response()->json([
             'message' => 'Removed from favorites'
         ]);

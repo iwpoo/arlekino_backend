@@ -145,7 +145,9 @@ Route::prefix('v1')->group(static function (): void {
 
             // Cart & Favorites
             Route::apiResource('cart', CartController::class)->except(['show']);
-            Route::apiResource('favorites', FavoriteProductController::class)->only(['index', 'store', 'destroy']);
+            Route::get('favorites', [FavoriteProductController::class, 'index']);
+            Route::post('favorites/{product}', [FavoriteProductController::class, 'store']);
+            Route::delete('favorites/{product}', [FavoriteProductController::class, 'destroy']);
             Route::get('favorites/check/{product}', [FavoriteProductController::class, 'check']);
 
             // Payments & Addresses

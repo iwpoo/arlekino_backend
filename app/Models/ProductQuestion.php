@@ -43,7 +43,7 @@ class ProductQuestion extends Model
 
     public function helpfulUsers(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'question_helpful')
+        return $this->belongsToMany(User::class, 'question_helpful', 'question_id')
             ->withTimestamps();
     }
 }
